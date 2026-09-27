@@ -1,0 +1,7 @@
+{
+  "name": "bad-reserved-id",
+  "description": "Node id \"input\" collides with the run-input template variable.",
+  "nodes": [
+    { "id": "input", "prompts": ["hello"] }
+  ]
+}

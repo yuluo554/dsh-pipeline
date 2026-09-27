@@ -1,0 +1,31 @@
+{
+  "name": "output-schema",
+  "description": "Structured node output via an object-rooted JSON schema; the downstream prompt embeds it as JSON.",
+  "nodes": [
+    {
+      "id": "keywords",
+      "label": "Keywords",
+      "prompts": [
+        "Extract exactly three keywords about {{input}}. Return them as the schema requires."
+      ],
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "keywords": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["keywords"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "id": "tagline",
+      "label": "Tagline",
+      "prompts": [
+        "Write a one-line tagline using these keywords (given as JSON): {{keywords}}"
+      ]
+    }
+  ]
+}

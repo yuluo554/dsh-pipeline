@@ -2,11 +2,15 @@ import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
+import { registerPipeline } from './entry.js'
+import { PIPELINE_VERSION } from './version.js'
 
 export const name = 'dsh-pipeline'
-export const inject = ['tools']
+export const inject = ['tools', 'workflowEngine', 'subagents', 'commands', 'fs']
 
 export function apply(ctx: Context) {
+  // M0 smoke tool (HANDOFF 口径 7): kept so the install self-check keeps
+  // proving the bundle loads and its tools register.
   ctx.tools.register(defineTool({
     name: 'pipeline_hello',
     description:
@@ -20,10 +24,13 @@ export function apply(ctx: Context) {
       render: (_args, value) => [{ type: 'text', text: value }],
     },
     async execute(args) {
-      return `Hello, ${args.name}! (dsh-pipeline M0)`
+      return `Hello, ${args.name}! (dsh-pipeline)`
     },
   }))
-  console.log('[dsh-pipeline] tool registered: pipeline_hello')
+  console.log(`[dsh-pipeline] tool registered: pipeline_hello`)
+
+  registerPipeline(ctx)
+  console.log(`[dsh-pipeline] ${PIPELINE_VERSION} entry registered: /pipeline command + pipeline tool`)
 
   // M0 self-check (official tutorial ch.07 pattern): drive one call through
   // the real tool pipeline in place of the model — no API key involved.

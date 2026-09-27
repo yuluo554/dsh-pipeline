@@ -1,0 +1,8 @@
+{
+  "name": "bad-empty-prompt",
+  "description": "Node prompts array contains an empty string.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello"] },
+    { "id": "b", "prompts": [""] }
+  ]
+}

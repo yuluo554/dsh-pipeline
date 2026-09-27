@@ -1,0 +1,15 @@
+{
+  "name": "multi-prompt-node",
+  "description": "One node with three prompts delivered in order; each prompt sees the previous output via {{prev}}.",
+  "nodes": [
+    {
+      "id": "planner",
+      "label": "Planner",
+      "prompts": [
+        "Task: {{input}}\nStep 1 - draft a short plan.",
+        "Step 2 - review your own plan and improve it:\n{{prev}}",
+        "Step 3 - condense the improved plan into one paragraph:\n{{prev}}"
+      ]
+    }
+  ]
+}

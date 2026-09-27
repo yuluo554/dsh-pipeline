@@ -1,0 +1,7 @@
+{
+  "name": "bad-skip-policy",
+  "description": "failurePolicy \"skip\" is an M2 feature; the M1 compiler rejects it (IR_UNSUPPORTED_FEATURE).",
+  "nodes": [
+    { "id": "a", "prompts": ["hello"], "failurePolicy": "skip" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "bad name with spaces",
+  "description": "Pipeline name must be filename-safe; this one contains spaces.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello"] }
+  ]
+}

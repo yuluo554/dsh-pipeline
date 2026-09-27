@@ -1,0 +1,30 @@
+{
+  "name": "depends-explicit",
+  "description": "Explicit dependsOn semantics: two parallel roots (explicit empty deps override implicit chaining) feeding one join node.",
+  "nodes": [
+    {
+      "id": "facts",
+      "label": "Facts",
+      "prompts": [
+        "List five concise facts about {{input}}."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "quotes",
+      "label": "Quotes",
+      "prompts": [
+        "Write one short original quote about {{input}}."
+      ],
+      "dependsOn": []
+    },
+    {
+      "id": "brief",
+      "label": "Brief",
+      "prompts": [
+        "Combine these facts:\n{{facts}}\n\nAnd this quote:\n{{quotes}}\n\nInto a one-paragraph brief."
+      ],
+      "dependsOn": ["facts", "quotes"]
+    }
+  ]
+}

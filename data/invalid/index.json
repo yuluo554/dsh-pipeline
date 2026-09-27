@@ -1,0 +1,21 @@
+{
+  "$comment": "B2 validation matrix manifest: each invalid fixture maps to the expected PipelineError code from the full validate -> normalize -> compile path. Frozen fixture data (plan/04, 口径 1).",
+  "schema-empty-prompt.json": "SCHEMA_INVALID",
+  "schema-bad-name.json": "SCHEMA_INVALID",
+  "schema-no-nodes.json": "SCHEMA_INVALID",
+  "ir-duplicate-id.json": "IR_DUPLICATE_ID",
+  "ir-reserved-id.json": "IR_RESERVED_ID",
+  "ir-unknown-dependency.json": "IR_UNKNOWN_DEPENDENCY",
+  "ir-self-dependency.json": "IR_SELF_DEPENDENCY",
+  "ir-dependency-cycle.json": "IR_DEPENDENCY_CYCLE",
+  "ir-unknown-variable.json": "IR_UNKNOWN_VARIABLE",
+  "ir-malformed-variable.json": "IR_UNKNOWN_VARIABLE",
+  "ir-prev-first-prompt.json": "IR_UNKNOWN_VARIABLE",
+  "ir-output-schema-subset.json": "IR_OUTPUT_SCHEMA",
+  "m2-skip-policy.json": "IR_UNSUPPORTED_FEATURE",
+  "m2-retry.json": "IR_UNSUPPORTED_FEATURE",
+  "m2-skills.json": "IR_UNSUPPORTED_FEATURE",
+  "m2-tools.json": "IR_UNSUPPORTED_FEATURE",
+  "m2-reasoning-effort.json": "IR_UNSUPPORTED_FEATURE",
+  "m2-default-policy.json": "IR_UNSUPPORTED_FEATURE"
+}

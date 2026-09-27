@@ -16,7 +16,8 @@
   "files": [
     "lib",
     "cordis.patch.yml",
-    "locale/*.json"
+    "locale/*.json",
+    "data"
   ],
   "engines": {
     "node": ">=20"
@@ -40,19 +41,30 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm run build && node --test"
+    "test": "pnpm run build && node --test",
+    "bench": "pnpm run build && node scripts/bench.js"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-agent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-brand": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-commands": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.1",
-    "@deepseek-ai/dsh-tools": "0.1.5-rc.1"
+    "@deepseek-ai/dsh-subagent": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-workflow": "0.1.5-rc.1"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
+    "@deepseek-ai/dsh-agent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-brand": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-commands": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-subagent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-workflow": "0.1.5-rc.1",
     "@types/node": "^24.19.0",
     "typescript": "^5.6.0"
   },

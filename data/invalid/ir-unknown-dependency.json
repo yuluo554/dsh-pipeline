@@ -1,0 +1,7 @@
+{
+  "name": "bad-unknown-dep",
+  "description": "dependsOn references a node id that does not exist.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello"], "dependsOn": ["ghost"] }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "bad-self-dep",
+  "description": "A node depends on itself.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello"], "dependsOn": ["a"] }
+  ]
+}

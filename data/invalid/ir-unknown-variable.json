@@ -1,0 +1,7 @@
+{
+  "name": "bad-unknown-var",
+  "description": "Prompt template references {{ghost}}, which is neither input, prev, nor a node id.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello {{ghost}}"] }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "bad-tools",
+  "description": "Per-node tool filtering is an M2 feature (and the 0.1.5-rc.1 engine has no agent() toolFilter path); the M1 compiler rejects it (IR_UNSUPPORTED_FEATURE).",
+  "nodes": [
+    { "id": "a", "prompts": ["hello"], "tools": { "deny": ["bash"] } }
+  ]
+}

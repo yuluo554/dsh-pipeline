@@ -1,0 +1,11 @@
+{
+  "name": "bad-reasoning-effort",
+  "description": "reasoningEffort routing is rejected: the 0.1.5-rc.1 workflow engine only forwards provider/model (effort is deferred), so routing it would be silently dropped (IR_UNSUPPORTED_FEATURE).",
+  "nodes": [
+    {
+      "id": "a",
+      "prompts": ["hello"],
+      "model": { "provider": "deepseek", "model": "deepseek-reasoner", "reasoningEffort": "high" }
+    }
+  ]
+}

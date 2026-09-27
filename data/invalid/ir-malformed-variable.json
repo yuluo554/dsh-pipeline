@@ -1,0 +1,7 @@
+{
+  "name": "bad-malformed-var",
+  "description": "Prompt template contains {{a b}}, which is not a well-formed variable expression.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello {{a b}}"] }
+  ]
+}

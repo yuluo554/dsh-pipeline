@@ -1,0 +1,7 @@
+{
+  "name": "bad-prev-first",
+  "description": "{{prev}} in a node's first prompt has no previous output to reference.",
+  "nodes": [
+    { "id": "a", "prompts": ["start from {{prev}}", "then continue"] }
+  ]
+}

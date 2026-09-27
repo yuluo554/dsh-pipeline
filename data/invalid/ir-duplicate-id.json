@@ -1,0 +1,8 @@
+{
+  "name": "bad-dup-id",
+  "description": "Two nodes share the id \"a\".",
+  "nodes": [
+    { "id": "a", "prompts": ["one"] },
+    { "id": "a", "prompts": ["two"] }
+  ]
+}

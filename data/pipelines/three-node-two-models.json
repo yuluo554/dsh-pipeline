@@ -1,0 +1,29 @@
+{
+  "name": "three-node-two-models",
+  "description": "M1 demo: outline on the cheap route, review on the parent route, write on the reasoner route.",
+  "nodes": [
+    {
+      "id": "outline",
+      "label": "Outline",
+      "prompts": [
+        "Write a concise bullet-list outline for a short article about {{input}}. Return only the outline."
+      ],
+      "model": { "provider": "deepseek", "model": "deepseek-chat" }
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "prompts": [
+        "Review the following outline for factual risks and gaps. Return a short numbered list of revision notes.\n\nOutline:\n{{outline}}"
+      ]
+    },
+    {
+      "id": "write",
+      "label": "Write",
+      "prompts": [
+        "Write the final short article about {{input}} using this outline:\n{{outline}}\n\nApply these review notes:\n{{review}}\n\nReturn only the article text."
+      ],
+      "model": { "provider": "deepseek", "model": "deepseek-reasoner" }
+    }
+  ]
+}

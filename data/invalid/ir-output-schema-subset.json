@@ -1,0 +1,16 @@
+{
+  "name": "bad-output-schema-subset",
+  "description": "outputSchema uses a format keyword outside the engine's supported object-rooted subset.",
+  "nodes": [
+    {
+      "id": "a",
+      "prompts": ["hello"],
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "when": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  ]
+}

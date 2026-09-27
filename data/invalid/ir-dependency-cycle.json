@@ -1,0 +1,9 @@
+{
+  "name": "bad-cycle",
+  "description": "Three nodes form a dependency cycle a -> b -> c -> a.",
+  "nodes": [
+    { "id": "a", "prompts": ["hello {{c}}"] },
+    { "id": "b", "prompts": ["hello {{a}}"] },
+    { "id": "c", "prompts": ["hello {{b}}"] }
+  ]
+}

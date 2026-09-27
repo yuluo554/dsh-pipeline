@@ -1,0 +1,13 @@
+{
+  "name": "single-node",
+  "description": "Minimal pipeline: one node, one prompt, default parent routing.",
+  "nodes": [
+    {
+      "id": "echo",
+      "label": "Echo",
+      "prompts": [
+        "Summarize the following in one sentence:\n{{input}}"
+      ]
+    }
+  ]
+}

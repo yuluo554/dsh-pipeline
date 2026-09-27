@@ -1,0 +1,5 @@
+{
+  "name": "bad-no-nodes",
+  "description": "nodes array is empty.",
+  "nodes": []
+}
