@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-pipeline",
+    "description": "Multi-node workflow orchestration for DeepSeek Harness: define agent pipelines as JSON, compile them into native workflow-engine scripts, and run them with one command."
+  }
+}

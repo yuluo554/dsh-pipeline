@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-pipeline",
+    "description": "DeepSeek Harness 多节点工作流编排：以 JSON 定义流水线，编译为原生 workflow 引擎脚本一键运行。"
+  }
+}

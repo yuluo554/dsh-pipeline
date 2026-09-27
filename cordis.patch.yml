@@ -1,0 +1,10 @@
+# dsh-pipeline —— DSH bundle patch
+#
+# `dsh plugin --profile <name> add ./dsh-pipeline` 会把本包追加进 profile 的
+# dsh.profile.bundles，并把下面的 insert 行叠入配置树（在 dsh-base 层之后）。
+# name 必须能在 profile 的 node_modules 中解析到本包；插件模块自身声明
+# inject = ['tools']，等待工具注册表就绪后再 apply。
+- insert:
+    - id: dsh-pipeline
+      name: 'dsh-pipeline'
+      config: {}

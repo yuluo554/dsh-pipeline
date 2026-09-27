@@ -1,0 +1,16 @@
+# dependencies & build output
+node_modules/
+lib/
+
+# env & secrets (M5 发布门：git ls-files 不得出现)
+.env
+.env.*
+*.key
+
+# 运行产物（含流水线私有数据，M5 脱敏范围）
+data/**/_private/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
