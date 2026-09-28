@@ -17,17 +17,17 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SubagentCapabilities } from '@deepseek-ai/dsh-subagent'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { runPipeline } from './runner.js'
-import type { RunOutcome, SkillResolver } from './runner.js'
+import type { SkillResolver } from './runner.js'
 import { listDefs, loadDef, readRawDef } from './store.js'
 import { PipelineError } from './errors.js'
 import { setLocale, t } from './messages.js'
+import { formatSuccess, formatFailure } from './format.js'
 import type { PipelineDef } from './schema.js'
 
 export const COMMAND_NAME = 'pipeline'
 export const TOOL_NAME = 'pipeline'
 
-/** Per-node output cap in the formatted result (chars). */
-export const NODE_OUTPUT_LIMIT = 2000
+export { NODE_OUTPUT_LIMIT } from './format.js'
 
 export interface PipelineEntryConfig {
   /**
@@ -168,33 +168,6 @@ function skillsOf(ctx: Context): SkillResolver | undefined {
   } catch {
     return undefined
   }
-}
-
-function formatSuccess(def: PipelineDef, outcome: RunOutcome): string {
-  const nodeNoun = def.nodes.length === 1 ? 'node' : 'nodes'
-  const agentNoun = outcome.agentsStarted === 1 ? 'agent' : 'agents'
-  const lines = [t('entry.pipelineCompleted', { name: def.name, nodes: `${def.nodes.length} ${nodeNoun}`, agents: `${outcome.agentsStarted} ${agentNoun}` })]
-  const nodes = (outcome.value as { nodes?: Record<string, unknown> } | null)?.nodes ?? {}
-  for (const [id, output] of Object.entries(nodes)) {
-    lines.push(`${id}: ${output === null ? t('entry.nodeSkipped') : truncate(renderOutput(output))}`)
-  }
-  return lines.join('\n')
-}
-
-function formatFailure(def: PipelineDef, outcome: RunOutcome): Error {
-  return new Error(
-    t('entry.pipelineStopped', { name: def.name, stopReason: outcome.stopReason, detail: outcome.error ?? 'no error detail' }),
-  )
-}
-
-function renderOutput(output: unknown): string {
-  if (typeof output === 'string') return output
-  return JSON.stringify(output)
-}
-
-function truncate(text: string): string {
-  if (text.length <= NODE_OUTPUT_LIMIT) return text
-  return `${text.slice(0, NODE_OUTPUT_LIMIT)}... (+${text.length - NODE_OUTPUT_LIMIT} chars truncated)`
 }
 
 function render(err: unknown): string {

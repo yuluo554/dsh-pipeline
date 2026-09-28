@@ -6,8 +6,12 @@
  * `fs.writeText`, whose backend contract is atomic publication (plan/03's
  * "temp+rename" is provided by the seam itself, verified in dsh-fs-local).
  */
-import { FsError } from '@deepseek-ai/dsh-fs'
 import type { Context } from '@deepseek-ai/cordis'
+// Type-only import: its module augmentation puts `fs` on the cordis Context.
+// (isMissing below deliberately does NOT use FsError's class identity — the
+// plugin and the hosting dsh process resolve separate package copies, so
+// `instanceof` does not carry across the seam.)
+import type {} from '@deepseek-ai/dsh-fs'
 import { ErrorCode, PipelineError } from './errors.js'
 import { isValidDefName, validateDef } from './schema.js'
 import { t } from './messages.js'
@@ -19,8 +23,14 @@ function defPath(name: string): string {
   return `${PIPELINES_DIR}/${name}.json`
 }
 
+/**
+ * `FS_NOT_FOUND` discriminator. Matched by the error's `code` property, not
+ * `instanceof FsError`: the plugin and the hosting dsh process resolve
+ * separate package copies of dsh-fs, so class identity does not carry
+ * across the seam (M3 live-smoke finding, HANDOFF-M4).
+ */
 function isMissing(err: unknown): boolean {
-  return err instanceof FsError && err.code === 'FS_NOT_FOUND'
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'FS_NOT_FOUND'
 }
 
 /** List saved pipeline names (sorted). An absent directory lists as empty. */

@@ -13,6 +13,11 @@ function makeStubCtx(registered) {
     workflowEngine: {},
     subagents: { getProvider: () => undefined, list: () => [] },
     fs: {},
+    // M3: mountWebHalf spawns the web sub-plugin; record its contract here.
+    plugins: [],
+    plugin(runtime, config) {
+      this.plugins.push({ name: runtime.name, inject: runtime.inject, apply: runtime.apply, config })
+    },
   }
 }
 
@@ -42,6 +47,16 @@ test('apply registers the pipeline tool and the /pipeline command', () => {
   assert.equal(commands.length, 1)
   assert.equal(commands[0].name, 'pipeline')
   assert.equal(typeof commands[0].handler, 'function')
+})
+
+test('apply mounts the web half as a sub-plugin waiting on connection/sessionController', () => {
+  const registered = []
+  const ctx = makeStubCtx(registered)
+  apply(ctx)
+  const web = ctx.plugins.find((entry) => entry.name === 'dsh-pipeline-web')
+  assert.ok(web, 'web half not mounted')
+  assert.deepEqual(web.inject, ['connection', 'sessionController'])
+  assert.equal(typeof web.apply, 'function')
 })
 
 test('pipeline_hello executes and greets', async () => {

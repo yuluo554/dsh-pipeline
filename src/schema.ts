@@ -4,55 +4,24 @@
  * Shape-level only: semantic rules (duplicate ids, dependency resolution,
  * template variables, M2 feature gates) live in ir.ts. This module never
  * throws — it collects every violation so an editor can show them all at once.
+ *
+ * The type vocabulary and id grammar live in def-types.ts (browser-safe:
+ * the client editor imports the same declarations); they are re-exported
+ * here so the host half keeps a single import site.
  */
 
 import { t } from './messages.js'
 
-export interface PipelineDef {
-  name: string
-  description: string
-  nodes: PipelineNode[]
-  options?: PipelineOptions
-}
-
-export interface PipelineOptions {
-  maxAgentsPerNode?: number
-  defaultFailurePolicy?: 'abort' | 'skip'
-}
-
-export interface PipelineNode {
-  id: string
-  label?: string
-  /** >= 1 prompt, delivered in order within the node. */
-  prompts: string[]
-  model?: NodeModel
-  skills?: string[]
-  tools?: { allow?: string[]; deny?: string[] }
-  /** Absent = implicit linear chaining onto the previous node; present (even empty) overrides it. */
-  dependsOn?: string[]
-  outputSchema?: Record<string, unknown>
-  failurePolicy?: 'abort' | 'skip'
-  retry?: number
-}
-
-export interface NodeModel {
-  provider?: string
-  model?: string
-  reasoningEffort?: string
-}
-
-export interface DefError {
-  /** JSON-pointer-ish location, e.g. `nodes[2].prompts[0]`. */
-  path: string
-  message: string
-}
-
-/** Pipeline name / node id grammar: filename-safe and template-reference safe. */
-const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/
-
-export function isValidDefName(name: string): boolean {
-  return ID_RE.test(name)
-}
+export type {
+  PipelineDef,
+  PipelineOptions,
+  PipelineNode,
+  NodeModel,
+  DefError,
+} from './def-types.js'
+export { ID_RE, isValidDefName } from './def-types.js'
+import { ID_RE, isValidDefName } from './def-types.js'
+import type { PipelineDef, PipelineOptions, PipelineNode, NodeModel, DefError } from './def-types.js'
 
 export type ValidateResult =
   | { ok: true; def: PipelineDef }
@@ -161,111 +130,104 @@ function validateNode(
     return undefined
   }
   const rec = raw as Record<string, unknown>
-  const node: PipelineNode = { id: '', prompts: [] }
-  let ok = true
-
+  // Assembled in the documented field order (id, label, prompts, model,
+  // skills, tools, dependsOn, outputSchema, failurePolicy, retry) so
+  // store.saveDef's canonical bytes match the shipped fixture layout.
+  // Field order is expressed with spreads: property insertion follows source
+  // order, so post-hoc `node.x = ...` assignments would reshuffle the bytes.
   const known = new Set(['id', 'label', 'prompts', 'model', 'skills', 'tools', 'dependsOn', 'outputSchema', 'failurePolicy', 'retry'])
   for (const key of Object.keys(rec)) {
-    if (!known.has(key)) {
-      push(`${path}.${key}`, t('schema.unknownNodeField', { key }))
-      ok = false
-    }
+    if (!known.has(key)) push(`${path}.${key}`, t('schema.unknownNodeField', { key }))
   }
-
-  if (typeof rec.id !== 'string' || !ID_RE.test(rec.id)) {
-    push(`${path}.id`, t('schema.nodeIdPattern', { pattern: ID_RE.source }))
-    ok = false
-  } else {
-    node.id = rec.id
+  const idOk = typeof rec.id === 'string' && ID_RE.test(rec.id)
+  if (Array.isArray(rec.prompts)) {
+    rec.prompts.forEach((prompt, index) => {
+      if (typeof prompt !== 'string' || prompt.length === 0) push(`${path}.prompts[${index}]`, t('schema.promptNonEmpty'))
+    })
   }
-
+  const promptsOk = Array.isArray(rec.prompts) && rec.prompts.length > 0 && rec.prompts.every((prompt) => typeof prompt === 'string' && prompt.length > 0)
+  let label: string | undefined
   if (rec.label !== undefined) {
     if (typeof rec.label !== 'string' || rec.label.trim().length === 0) {
       push(`${path}.label`, t('schema.labelNonEmpty'))
-      ok = false
     } else {
-      node.label = rec.label
+      label = rec.label
     }
   }
-
-  if (!Array.isArray(rec.prompts) || rec.prompts.length === 0) {
-    push(`${path}.prompts`, t('schema.promptsNonEmpty'))
-    ok = false
-  } else {
-    rec.prompts.forEach((prompt, index) => {
-      if (typeof prompt !== 'string' || prompt.length === 0) {
-        push(`${path}.prompts[${index}]`, t('schema.promptNonEmpty'))
-        ok = false
-      }
-    })
-    if (ok) node.prompts = rec.prompts as string[]
-  }
-
+  let model: NodeModel | undefined
   if (rec.model !== undefined) {
-    const model = validateModel(rec.model, `${path}.model`, push)
-    if (model !== undefined) node.model = model
+    model = validateModel(rec.model, `${path}.model`, push)
   }
-
+  let skills: string[] | undefined
   if (rec.skills !== undefined) {
     if (!Array.isArray(rec.skills) || rec.skills.length === 0 || !rec.skills.every((s) => typeof s === 'string' && s.length > 0)) {
       push(`${path}.skills`, t('schema.skillsInvalid'))
-      ok = false
     } else {
-      node.skills = rec.skills as string[]
+      skills = rec.skills as string[]
     }
   }
-
+  let tools: { allow?: string[]; deny?: string[] } | undefined
   if (rec.tools !== undefined) {
-    const tools = validateTools(rec.tools, `${path}.tools`, push)
-    if (tools !== undefined) node.tools = tools
+    tools = validateTools(rec.tools, `${path}.tools`, push)
   }
-
+  let dependsOn: string[] | undefined
   if (rec.dependsOn !== undefined) {
     if (!Array.isArray(rec.dependsOn) || !rec.dependsOn.every((d) => typeof d === 'string' && ID_RE.test(d))) {
       push(`${path}.dependsOn`, t('schema.dependsOnInvalid'))
-      ok = false
     } else {
       const deps = rec.dependsOn as string[]
       const seen = new Set<string>()
       deps.forEach((dep, index) => {
         if (seen.has(dep)) {
           push(`${path}.dependsOn[${index}]`, t('schema.duplicateDependency', { dep }))
-          ok = false
         }
         seen.add(dep)
       })
-      if (ok) node.dependsOn = deps
+      dependsOn = deps
     }
   }
-
+  let outputSchema: Record<string, unknown> | undefined
   if (rec.outputSchema !== undefined) {
     if (typeof rec.outputSchema !== 'object' || rec.outputSchema === null || Array.isArray(rec.outputSchema)) {
       push(`${path}.outputSchema`, t('schema.outputSchemaObject'))
-      ok = false
     } else {
-      node.outputSchema = rec.outputSchema as Record<string, unknown>
+      outputSchema = rec.outputSchema as Record<string, unknown>
     }
   }
-
+  let failurePolicy: 'abort' | 'skip' | undefined
   if (rec.failurePolicy !== undefined) {
     if (rec.failurePolicy !== 'abort' && rec.failurePolicy !== 'skip') {
       push(`${path}.failurePolicy`, t('schema.failurePolicyInvalid'))
-      ok = false
     } else {
-      node.failurePolicy = rec.failurePolicy
+      failurePolicy = rec.failurePolicy
     }
   }
-
+  let retry: number | undefined
   if (rec.retry !== undefined) {
     if (typeof rec.retry !== 'number' || !Number.isSafeInteger(rec.retry) || rec.retry < 0) {
       push(`${path}.retry`, t('schema.retryInvalid'))
-      ok = false
     } else {
-      node.retry = rec.retry
+      retry = rec.retry
     }
   }
 
-  return ok ? node : undefined
+  if (!idOk || !promptsOk) {
+    if (!idOk) push(`${path}.id`, t('schema.nodeIdPattern', { pattern: ID_RE.source }))
+    if (!promptsOk) push(`${path}.prompts`, t('schema.promptsNonEmpty'))
+    return undefined
+  }
+  return {
+    id: rec.id as string,
+    ...(label !== undefined ? { label } : {}),
+    prompts: rec.prompts as string[],
+    ...(model !== undefined ? { model } : {}),
+    ...(skills !== undefined ? { skills } : {}),
+    ...(tools !== undefined ? { tools } : {}),
+    ...(dependsOn !== undefined ? { dependsOn } : {}),
+    ...(outputSchema !== undefined ? { outputSchema } : {}),
+    ...(failurePolicy !== undefined ? { failurePolicy } : {}),
+    ...(retry !== undefined ? { retry } : {}),
+  }
 }
 
 function validateModel(

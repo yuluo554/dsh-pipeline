@@ -10,6 +10,7 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": "./lib/client.js",
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json"
   },
@@ -34,23 +35,35 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "external": [
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    },
     "compatibility": {
       "dsh": ">=0.1.0-rc.5"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json && node scripts/build-client.mjs",
+    "lint": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json",
     "test": "pnpm run build && node --test",
     "bench": "pnpm run build && node scripts/bench.js"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/dsh-agent": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "0.1.5-rc.1",
     "@deepseek-ai/dsh-brand": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-connection": "0.1.5-rc.1",
     "@deepseek-ai/dsh-commands": "0.1.5-rc.1",
     "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-session": "0.1.5-rc.1",
     "@deepseek-ai/dsh-skill": "0.1.5-rc.1",
     "@deepseek-ai/dsh-subagent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
@@ -59,16 +72,27 @@
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.2",
     "@deepseek-ai/dsh-agent": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "0.1.5-rc.1",
     "@deepseek-ai/dsh-brand": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-connection": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-locale": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.1",
     "@deepseek-ai/dsh-commands": "0.1.5-rc.1",
     "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-session": "0.1.5-rc.1",
     "@deepseek-ai/dsh-skill": "0.1.5-rc.1",
     "@deepseek-ai/dsh-subagent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
     "@deepseek-ai/dsh-workflow": "0.1.5-rc.1",
     "@deepseek-ai/dsh-workflow-worker-thread": "0.1.5-rc.1",
     "@types/node": "^24.19.0",
+    "@types/react": "~18.3.31",
+    "esbuild": "^0.28.2",
+    "react": "^18.3.1",
     "typescript": "^5.6.0"
   },
   "packageManager": "pnpm@10.34.5"

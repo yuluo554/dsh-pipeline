@@ -3,6 +3,7 @@ import { brandString } from '@deepseek-ai/dsh-brand'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { registerPipeline } from './entry.js'
+import { mountWebHalf } from './web.js'
 import { PIPELINE_VERSION } from './version.js'
 
 export const name = 'dsh-pipeline'
@@ -31,6 +32,12 @@ export function apply(ctx: Context) {
 
   registerPipeline(ctx)
   console.log(`[dsh-pipeline] ${PIPELINE_VERSION} entry registered: /pipeline command + pipeline tool`)
+
+  // M3 web half: /api/dsh-pipeline/* routes + the browser editor/run UI
+  // (lib/client.js via the package.json dsh.client declaration). Mounted as
+  // a sub-plugin that waits for connection/sessionController, so profiles
+  // without the web stack keep the core entry active.
+  mountWebHalf(ctx, {})
 
   // M0 self-check (official tutorial ch.07 pattern): drive one call through
   // the real tool pipeline in place of the model — no API key involved.

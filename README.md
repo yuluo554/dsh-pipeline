@@ -5,7 +5,7 @@ DeepSeek Harness（dsh）多节点工作流编排插件 —— 回应官方讨�
 把多节点（每节点独立 prompt/model/skill、失败策略）、可保存复用的 agent 流水线，
 以 JSON 定义、一键编译并运行。
 
-> **状态：M2（护栏与失败策略：abort/skip/retry、取消传播、错误本地化、skills 路由）**。
+> **状态：M3（Web 半编辑器：设置区表单编辑器 + 会话头运行入口，零手写 JSON 配置；host 护栏与失败策略同 M2）**。
 > 完整 README（特性/架构图/快速开始）将随 M5 发布补齐；
 > 设计与任务编排文档见 [`plan/`](./plan/00-总览README.md)。
 
