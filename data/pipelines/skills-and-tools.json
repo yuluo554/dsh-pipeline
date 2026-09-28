@@ -1,0 +1,8 @@
+{
+  "name": "skills-and-tools",
+  "description": "Per-node skills routing: the drafter loads a skill into every prompt, the reviewer runs bare and consumes the draft.",
+  "nodes": [
+    { "id": "draft", "label": "Draft", "prompts": ["Draft a one-page brief on {{input}}, following the loaded skill's instructions."], "skills": ["office"] },
+    { "id": "review", "label": "Review", "prompts": ["Review this draft:\n{{draft}}\n\nJudge tone and length in two sentences."] }
+  ]
+}

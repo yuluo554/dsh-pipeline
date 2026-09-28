@@ -10,6 +10,7 @@ import { FsError } from '@deepseek-ai/dsh-fs'
 import type { Context } from '@deepseek-ai/cordis'
 import { ErrorCode, PipelineError } from './errors.js'
 import { isValidDefName, validateDef } from './schema.js'
+import { t } from './messages.js'
 import type { PipelineDef } from './schema.js'
 
 export const PIPELINES_DIR = '.dsh/pipelines'
@@ -29,7 +30,7 @@ export async function listDefs(ctx: Context): Promise<string[]> {
     entries = await ctx.fs.listDir(await ctx.fs.resolve(PIPELINES_DIR))
   } catch (err) {
     if (isMissing(err)) return []
-    throw storeError(`cannot list ${PIPELINES_DIR}: ${render(err)}`)
+    throw storeError(t('store.cannotList', { dir: PIPELINES_DIR, detail: render(err) }))
   }
   return entries
     .filter((entry) => entry.type === 'file' && entry.name.endsWith('.json'))
@@ -44,14 +45,17 @@ export async function loadDef(ctx: Context, name: string): Promise<PipelineDef> 
   try {
     parsed = JSON.parse(raw)
   } catch (err) {
-    throw storeError(`pipeline "${name}" is not valid JSON: ${render(err)}`)
+    throw storeError(t('store.notValidJson', { name, detail: render(err) }))
   }
   const checked = validateDef(parsed)
   if (!checked.ok) {
     throw new PipelineError(
       ErrorCode.schema,
-      `pipeline "${name}" has ${checked.errors.length} definition problem(s):\n` +
-        checked.errors.map((e) => `  - ${e.path || '(root)'}: ${e.message}`).join('\n'),
+      t('store.definitionProblems', {
+        name,
+        count: checked.errors.length,
+        items: checked.errors.map((e) => `  - ${e.path || '(root)'}: ${e.message}`).join('\n'),
+      }),
     )
   }
   return checked.def
@@ -60,13 +64,13 @@ export async function loadDef(ctx: Context, name: string): Promise<PipelineDef> 
 /** Read the raw definition text (for `/pipeline show`). Throws STORE_ERROR when absent. */
 export async function readRawDef(ctx: Context, name: string): Promise<string> {
   if (!isValidDefName(name)) {
-    throw storeError(`"${name}" is not a valid pipeline name (letters, digits, "_" and "-"; must start alphanumeric)`)
+    throw storeError(t('store.invalidName', { name }))
   }
   try {
     return await ctx.fs.readText(await ctx.fs.resolve(defPath(name)))
   } catch (err) {
-    if (isMissing(err)) throw storeError(`no pipeline named "${name}" (see /pipeline list)`)
-    throw storeError(`cannot read pipeline "${name}": ${render(err)}`)
+    if (isMissing(err)) throw storeError(t('store.notFound', { name }))
+    throw storeError(t('store.cannotRead', { name, detail: render(err) }))
   }
 }
 
@@ -76,14 +80,15 @@ export async function saveDef(ctx: Context, def: PipelineDef): Promise<void> {
   if (!checked.ok) {
     throw new PipelineError(
       ErrorCode.schema,
-      `refusing to save an invalid definition:\n` +
-        checked.errors.map((e) => `  - ${e.path || '(root)'}: ${e.message}`).join('\n'),
+      t('store.refusingSave', {
+        items: checked.errors.map((e) => `  - ${e.path || '(root)'}: ${e.message}`).join('\n'),
+      }),
     )
   }
   try {
     await ctx.fs.writeText(await ctx.fs.resolve(defPath(def.name)), JSON.stringify(def, null, 2) + '\n')
   } catch (err) {
-    throw storeError(`cannot save pipeline "${def.name}": ${render(err)}`)
+    throw storeError(t('store.cannotSave', { name: def.name, detail: render(err) }))
   }
 }
 

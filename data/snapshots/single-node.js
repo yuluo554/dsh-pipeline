@@ -1,5 +1,5 @@
-// dsh-pipeline 0.1.0 — compiled pipeline "single-node".
-// 1 node, 1 agent call; failure policy: abort (M1).
+// dsh-pipeline 0.2.0 — compiled pipeline "single-node".
+// 1 node, 1 agent call max; policies: echo=abort.
 const out = {};
 phase("Echo");
 {

@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FsError } from '@deepseek-ai/dsh-fs'
+import { validateDef } from '../lib/schema.js'
+
+export { validateDef }
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 

@@ -1,0 +1,8 @@
+{
+  "name": "bad-skip-reference",
+  "description": "Template references to a skip-policy node are a value error: a skipped node's output is null, never a usable string.",
+  "nodes": [
+    { "id": "a", "prompts": ["flaky step"], "failurePolicy": "skip" },
+    { "id": "b", "prompts": ["Continue from: {{a}}"] }
+  ]
+}

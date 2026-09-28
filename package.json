@@ -1,6 +1,6 @@
 {
   "name": "dsh-pipeline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-node workflow orchestration plugin for DeepSeek Harness (dsh)",
   "type": "module",
   "main": "lib/index.js",
@@ -51,6 +51,7 @@
     "@deepseek-ai/dsh-commands": "0.1.5-rc.1",
     "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-skill": "0.1.5-rc.1",
     "@deepseek-ai/dsh-subagent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
     "@deepseek-ai/dsh-workflow": "0.1.5-rc.1"
@@ -62,9 +63,11 @@
     "@deepseek-ai/dsh-commands": "0.1.5-rc.1",
     "@deepseek-ai/dsh-fs": "0.1.5-rc.1",
     "@deepseek-ai/dsh-llm": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-skill": "0.1.5-rc.1",
     "@deepseek-ai/dsh-subagent": "0.1.5-rc.1",
     "@deepseek-ai/dsh-tools": "0.1.5-rc.1",
     "@deepseek-ai/dsh-workflow": "0.1.5-rc.1",
+    "@deepseek-ai/dsh-workflow-worker-thread": "0.1.5-rc.1",
     "@types/node": "^24.19.0",
     "typescript": "^5.6.0"
   },

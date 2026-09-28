@@ -5,6 +5,11 @@
  * revokes them. Result formatting caps each node output so a pipeline's
  * transcript cannot flood the conversation (token-amplification guard,
  * plan/02 #4).
+ *
+ * The skills registry (`ctx.skills`) is read lazily per run: accessing it
+ * eagerly would make the plugin's activation wait on the skills service
+ * (the M1 workflowEngine-pending lesson), and pipelines without skills must
+ * run on profiles that never register one.
  */
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { Context } from '@deepseek-ai/cordis'
@@ -12,9 +17,10 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { SubagentCapabilities } from '@deepseek-ai/dsh-subagent'
 import type { CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import { runPipeline } from './runner.js'
-import type { RunOutcome } from './runner.js'
+import type { RunOutcome, SkillResolver } from './runner.js'
 import { listDefs, loadDef, readRawDef } from './store.js'
 import { PipelineError } from './errors.js'
+import { setLocale, t } from './messages.js'
 import type { PipelineDef } from './schema.js'
 
 export const COMMAND_NAME = 'pipeline'
@@ -29,6 +35,12 @@ export interface PipelineEntryConfig {
    * runner prechecks). Defaults to the engine default "spawn".
    */
   provider?: string
+  /**
+   * Locale for user-facing error/diagnostic messages ('en' | 'zh', default
+   * 'en'). dsh's own locale preference is browser-side and not readable
+   * host-side (plan/06), so it is an explicit plugin knob.
+   */
+  locale?: 'en' | 'zh'
 }
 
 const USAGE = [
@@ -41,6 +53,7 @@ const USAGE = [
 
 export function registerPipeline(ctx: Context, config: PipelineEntryConfig = {}): void {
   const providerName = config.provider ?? 'spawn'
+  if (config.locale !== undefined) setLocale(config.locale)
 
   const runForCaller = async (
     parent: Agent,
@@ -50,7 +63,14 @@ export function registerPipeline(ctx: Context, config: PipelineEntryConfig = {})
   ): Promise<string> => {
     const def = await loadDef(ctx, name)
     const outcome = await runPipeline(
-      { engine: ctx.workflowEngine, caps: capsOf(ctx, providerName), parent, providerName, ...(signal !== undefined ? { signal } : {}) },
+      {
+        engine: ctx.workflowEngine,
+        caps: capsOf(ctx, providerName),
+        parent,
+        providerName,
+        ...(signal !== undefined ? { signal } : {}),
+        ...(skillsOf(ctx) !== undefined ? { skills: skillsOf(ctx) } : {}),
+      },
       def,
       input,
     )
@@ -72,18 +92,18 @@ export function registerPipeline(ctx: Context, config: PipelineEntryConfig = {})
         switch (sub) {
           case 'list': {
             const names = await listDefs(ctx)
-            if (names.length === 0) return { kind: 'success', text: 'no pipelines saved (workspace .dsh/pipelines/*.json)' }
+            if (names.length === 0) return { kind: 'success', text: t('entry.noPipelines') }
             return { kind: 'success', text: names.map((name) => `  ${name}`).join('\n') }
           }
           case 'show': {
-            if (rest === '') return { kind: 'error', text: 'usage: /pipeline show <name>' }
+            if (rest === '') return { kind: 'error', text: t('entry.usageShow') }
             const rawDef = await readRawDef(ctx, rest)
             let status: string
             try {
               const def = await loadDef(ctx, rest)
-              status = `valid - ${def.nodes.length} node(s)`
+              status = t('entry.validStatus', { count: def.nodes.length })
             } catch (err) {
-              status = `INVALID - ${render(err)}`
+              status = t('entry.invalidStatus', { detail: render(err) })
             }
             return { kind: 'success', text: `${rawDef.trimEnd()}\n\n// ${status}` }
           }
@@ -91,12 +111,12 @@ export function registerPipeline(ctx: Context, config: PipelineEntryConfig = {})
             const nameSpaceAt = rest.indexOf(' ')
             const name = nameSpaceAt === -1 ? rest : rest.slice(0, nameSpaceAt)
             const input = nameSpaceAt === -1 ? '' : rest.slice(nameSpaceAt + 1).trim()
-            if (name === '') return { kind: 'error', text: 'usage: /pipeline run <name> [input...]' }
+            if (name === '') return { kind: 'error', text: t('entry.usageRun') }
             const text = await runForCaller(invocation.agent, invocation.signal, name, input)
             return { kind: 'success', text }
           }
           default:
-            return { kind: 'error', text: `unknown subcommand "${sub}"\n\n${USAGE}` }
+            return { kind: 'error', text: t('entry.unknownSubcommand', { sub, usage: USAGE }) }
         }
       } catch (err) {
         return { kind: 'error', text: render(err) }
@@ -122,7 +142,7 @@ export function registerPipeline(ctx: Context, config: PipelineEntryConfig = {})
     },
     async execute(args, exec) {
       if (exec?.agent === undefined) {
-        throw new Error('pipeline tool requires a calling agent (exec.agent was undefined)')
+        throw new Error(t('entry.toolRequiresAgent'))
       }
       return runForCaller(exec.agent, exec.signal, args.name, args.input)
     },
@@ -135,27 +155,35 @@ function capsOf(ctx: Context, providerName: string): SubagentCapabilities {
     const available = ctx.subagents.list().join(', ')
     throw new PipelineError(
       'CAPABILITY_MISSING',
-      `no subagent provider registered as "${providerName}"${available.length > 0 ? ` (available: ${available})` : ''} `
-        + `- check the dsh-pipeline provider setting`,
+      t('entry.noProvider', { provider: providerName, available: available.length > 0 ? ` (available: ${available})` : '' }),
     )
   }
   return provider.capabilities
 }
 
+/** Lazy `ctx.skills` read: undefined when no skills service is registered. */
+function skillsOf(ctx: Context): SkillResolver | undefined {
+  try {
+    return (ctx as { skills?: SkillResolver }).skills
+  } catch {
+    return undefined
+  }
+}
+
 function formatSuccess(def: PipelineDef, outcome: RunOutcome): string {
   const nodeNoun = def.nodes.length === 1 ? 'node' : 'nodes'
   const agentNoun = outcome.agentsStarted === 1 ? 'agent' : 'agents'
-  const lines = [`pipeline "${def.name}" completed: ${def.nodes.length} ${nodeNoun}, ${outcome.agentsStarted} ${agentNoun}.`]
+  const lines = [t('entry.pipelineCompleted', { name: def.name, nodes: `${def.nodes.length} ${nodeNoun}`, agents: `${outcome.agentsStarted} ${agentNoun}` })]
   const nodes = (outcome.value as { nodes?: Record<string, unknown> } | null)?.nodes ?? {}
   for (const [id, output] of Object.entries(nodes)) {
-    lines.push(`${id}: ${truncate(renderOutput(output))}`)
+    lines.push(`${id}: ${output === null ? t('entry.nodeSkipped') : truncate(renderOutput(output))}`)
   }
   return lines.join('\n')
 }
 
 function formatFailure(def: PipelineDef, outcome: RunOutcome): Error {
   return new Error(
-    `pipeline "${def.name}" stopped (${outcome.stopReason}): ${outcome.error ?? 'no error detail'}`,
+    t('entry.pipelineStopped', { name: def.name, stopReason: outcome.stopReason, detail: outcome.error ?? 'no error detail' }),
   )
 }
 

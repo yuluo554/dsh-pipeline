@@ -6,20 +6,21 @@
  *   node in definition order, first node has none);
  * - template references `{{var}}` also create dependency edges;
  * - unknown template variables are rejected at compile time;
- * - referencing a failed-skip upstream node's output is a semantic error (the
- *   gate activates in M2 when `failurePolicy: "skip"` lands; M1 rejects skip
- *   outright as an unsupported feature);
+ * - referencing a skip-policy node's output is a semantic error (M2: a skipped
+ *   node's output is null — consuming it is a value error, not an empty string);
  * - topological order via Kahn's algorithm with definition-order tie-break
  *   (same input -> same IR, always).
  *
- * M1 feature gates (plan/06): per-node skills/tools routing, failure policies
- * other than abort, retry attempts, options overrides and reasoningEffort are
- * parsed by schema.ts (they are part of the def format) but rejected here with
- * IR_UNSUPPORTED_FEATURE — their routing lands in M2, and the 0.1.5-rc.1
- * workflow engine has no agent() toolFilter/effort path to honor them.
+ * M2 feature gates (plan/06): per-node tools routing and reasoningEffort remain
+ * rejected here with IR_UNSUPPORTED_FEATURE — the 0.1.5-rc.1 workflow engine has
+ * no agent() toolFilter path (SUPPORTED_AGENT_OPTIONS = label/phase/schema/
+ * provider/model) and rejects effort outright. Failure policies, retry attempts,
+ * options.defaultFailurePolicy and per-node skills ARE unsealed in M2 (skills
+ * resolve at run time in the runner; policies compile into the script).
  */
 import { assertObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import { ErrorCode, PipelineError } from './errors.js'
+import { t } from './messages.js'
 import type { PipelineDef, PipelineNode } from './schema.js'
 
 /** Reserved template variable: the run input. */
@@ -45,8 +46,15 @@ export interface IRNode {
   prompts: IRPrompt[]
   agentOptions: { provider?: string; model?: string }
   outputSchema: Record<string, unknown> | undefined
+  /** Declared skill names, in definition order; undefined = no skills routing. */
+  skills: string[] | undefined
+  /** Resolved failure policy: node.failurePolicy ?? options.defaultFailurePolicy ?? 'abort'. */
+  failurePolicy: 'abort' | 'skip'
+  /** Resolved retry count (whole-node reruns after the first attempt). */
+  retry: number
   needsAgentOptions: boolean
   needsOutputSchema: boolean
+  needsSkills: boolean
 }
 
 export interface PipelineIR {
@@ -54,7 +62,8 @@ export interface PipelineIR {
   description: string
   /** Topologically ordered nodes (definition order tie-break). */
   nodes: IRNode[]
-  /** Exact upper bound of agent() calls the compiled script can make. */
+  /** Exact upper bound of agent() calls the compiled script can make:
+   *  sum over nodes of prompts.length * (1 + retry). */
   totalAgentCalls: number
 }
 
@@ -89,8 +98,7 @@ export function segmentTemplate(template: string, location: string): TemplateSeg
     if (match === null || match.index !== open) {
       throw new PipelineError(
         ErrorCode.unknownVariable,
-        `${location}: malformed template expression at offset ${open} — expected "{{variable}}"; ` +
-          `variables are "${INPUT_VARIABLE}", "${PREV_VARIABLE}", or a node id`,
+        t('ir.malformedTemplate', { location, offset: open }),
       )
     }
     if (open > cursor) segments.push({ kind: 'static', text: template.slice(cursor, open) })
@@ -116,27 +124,35 @@ function refFor(name: string): TemplateRef {
 }
 
 export function buildIR(def: PipelineDef): PipelineIR {
-  assertM1FeatureGates(def)
+  assertM2FeatureGates(def)
 
   const byId = new Map<string, { node: PipelineNode; index: number }>()
   for (const [index, node] of def.nodes.entries()) {
     if (byId.has(node.id)) {
-      throw new PipelineError(ErrorCode.duplicateId, `duplicate node id "${node.id}" (definitions must be unique)`)
+      throw new PipelineError(ErrorCode.duplicateId, t('ir.duplicateId', { id: node.id }))
     }
     if (node.id === INPUT_VARIABLE || node.id === PREV_VARIABLE) {
       throw new PipelineError(
         ErrorCode.reservedId,
-        `node id "${node.id}" is reserved (used as a template variable); pick another id`,
+        t('ir.reservedId', { id: node.id }),
       )
     }
     byId.set(node.id, { node, index })
+  }
+
+  // Failure policies resolve node-locally, so they are known before any
+  // reference is checked (the skip-reference rule needs the target's policy).
+  const skipPolicyIds = new Set<string>()
+  for (const node of def.nodes) {
+    const policy = node.failurePolicy ?? def.options?.defaultFailurePolicy ?? 'abort'
+    if (policy === 'skip') skipPolicyIds.add(node.id)
   }
 
   // Dependency edges: explicit dependsOn, implicit chaining, template refs.
   const deps = new Map<string, Set<string>>()
   const addEdge = (from: string, to: string, why: string): void => {
     if (from === to) {
-      throw new PipelineError(ErrorCode.selfDependency, `node "${from}" depends on itself (${why})`)
+      throw new PipelineError(ErrorCode.selfDependency, t('ir.selfDependency', { id: from, why }))
     }
     const set = deps.get(from) ?? new Set<string>()
     set.add(to)
@@ -154,22 +170,26 @@ export function buildIR(def: PipelineDef): PipelineIR {
         if (ref.kind === 'prev' && promptIndex === 0) {
           throw new PipelineError(
             ErrorCode.unknownVariable,
-            `${location}: {{${PREV_VARIABLE}}} has no previous output — it is the node's first prompt`,
+            t('ir.prevFirstPrompt', { location }),
           )
         }
         if (ref.kind === 'node') {
           if (ref.id === id) {
             throw new PipelineError(
               ErrorCode.selfReference,
-              `${location}: node "${id}" references its own final output; use {{${PREV_VARIABLE}}} ` +
-                `for an earlier prompt's output within the same node`,
+              t('ir.selfReference', { location, id }),
             )
           }
           if (!byId.has(ref.id)) {
             throw new PipelineError(
               ErrorCode.unknownVariable,
-              `${location}: template variable "{{${ref.id}}}" does not match any node id` +
-                ` (available: ${[...byId.keys()].map((k) => `"${k}"`).join(', ')}, "${INPUT_VARIABLE}", "${PREV_VARIABLE}")`,
+              t('ir.unknownVariable', { location, variable: ref.id, available: [...byId.keys()].map((k) => `"${k}"`).join(', ') }),
+            )
+          }
+          if (skipPolicyIds.has(ref.id)) {
+            throw new PipelineError(
+              ErrorCode.skipReference,
+              t('ir.skipReference', { location, variable: ref.id }),
             )
           }
         }
@@ -184,8 +204,7 @@ export function buildIR(def: PipelineDef): PipelineIR {
         if (!byId.has(dep)) {
           throw new PipelineError(
             ErrorCode.unknownDependency,
-            `node "${id}" depends on "${dep}", which is not a node in this pipeline` +
-              ` (available: ${[...byId.keys()].map((k) => `"${k}"`).join(', ')})`,
+            t('ir.unknownDependency', { id, dep, available: [...byId.keys()].map((k) => `"${k}"`).join(', ') }),
           )
         }
         addEdge(id, dep, 'dependsOn')
@@ -216,10 +235,12 @@ export function buildIR(def: PipelineDef): PipelineIR {
         const detail = err instanceof Error ? err.message : String(err)
         throw new PipelineError(
           ErrorCode.outputSchema,
-          `node "${node.id}": outputSchema is outside the engine's supported object-rooted subset — ${detail}`,
+          t('ir.outputSchemaSubset', { id: node.id, detail }),
         )
       }
     }
+    const failurePolicy = node.failurePolicy ?? def.options?.defaultFailurePolicy ?? 'abort'
+    const retry = node.retry ?? 0
     return {
       id: node.id,
       label: node.label,
@@ -227,8 +248,12 @@ export function buildIR(def: PipelineDef): PipelineIR {
       prompts: prompts[index].map(({ template, refs }) => ({ template, refs })),
       agentOptions,
       outputSchema,
+      skills: node.skills,
+      failurePolicy,
+      retry,
       needsAgentOptions: agentOptions.provider !== undefined || agentOptions.model !== undefined,
       needsOutputSchema: outputSchema !== undefined,
+      needsSkills: node.skills !== undefined,
     }
   })
 
@@ -236,7 +261,7 @@ export function buildIR(def: PipelineDef): PipelineIR {
     name: def.name,
     description: def.description,
     nodes: irNodes,
-    totalAgentCalls: irNodes.reduce((sum, node) => sum + node.prompts.length, 0),
+    totalAgentCalls: irNodes.reduce((sum, node) => sum + node.prompts.length * (1 + node.retry), 0),
   }
 }
 
@@ -272,7 +297,7 @@ function topologicalOrder(def: PipelineDef, deps: Map<string, Set<string>>): num
       const stuck = def.nodes.filter((n) => !emitted.has(n.id)).map((n) => `"${n.id}"`)
       throw new PipelineError(
         ErrorCode.dependencyCycle,
-        `dependency cycle among nodes: ${stuck.join(' -> ')} (cycles cannot be executed)`,
+        t('ir.dependencyCycle', { stuck: stuck.join(' -> ') }),
       )
     }
     const id = def.nodes[next].id
@@ -285,35 +310,24 @@ function topologicalOrder(def: PipelineDef, deps: Map<string, Set<string>>): num
   return order
 }
 
-function assertM1FeatureGates(def: PipelineDef): void {
-  const gate = (detail: string, where: string): PipelineError =>
-    new PipelineError(
-      ErrorCode.unsupportedFeature,
-      `${where}: ${detail} lands in M2 (plan/05) — remove it to run on M1`,
-    )
+/**
+ * M2 feature gates (plan/06): only the routings the 0.1.5-rc.1 engine cannot
+ * honor stay rejected. Failure policies, retry, options.defaultFailurePolicy
+ * and per-node skills are unsealed (skills resolve in the runner at run time;
+ * policies compile into the script). maxAgentsPerNode remains gated — the
+ * engine ceiling is engine-owned, per-node limits have no seam.
+ */
+function assertM2FeatureGates(def: PipelineDef): void {
+  const gate = (key: string, params: Record<string, string>): PipelineError =>
+    new PipelineError(ErrorCode.unsupportedFeature, t(key, params))
 
-  if (def.options !== undefined) {
-    if (def.options.maxAgentsPerNode !== undefined) {
-      throw gate('"options.maxAgentsPerNode"', `pipeline "${def.name}"`)
-    }
-    if (def.options.defaultFailurePolicy !== undefined && def.options.defaultFailurePolicy !== 'abort') {
-      throw gate(`"options.defaultFailurePolicy: ${def.options.defaultFailurePolicy}"`, `pipeline "${def.name}"`)
-    }
+  if (def.options !== undefined && def.options.maxAgentsPerNode !== undefined) {
+    throw gate('ir.gateMaxAgentsPerNode', { where: `pipeline "${def.name}"` })
   }
 
   for (const [index, node] of def.nodes.entries()) {
     const where = `nodes[${index}] (node "${node.id}")`
-    if (node.skills !== undefined) throw gate('per-node "skills" routing', where)
-    if (node.tools !== undefined) throw gate('per-node "tools" routing', where)
-    if (node.failurePolicy !== undefined && node.failurePolicy !== 'abort') {
-      throw gate(`"failurePolicy: ${node.failurePolicy}"`, where)
-    }
-    if (node.retry !== undefined && node.retry > 0) throw gate('"retry" attempts', where)
-    if (node.model?.reasoningEffort !== undefined) {
-      throw gate(
-        '"model.reasoningEffort" routing (the 0.1.5-rc.1 engine forwards only provider/model and rejects effort)',
-        where,
-      )
-    }
+    if (node.tools !== undefined) throw gate('ir.gateTools', { where })
+    if (node.model?.reasoningEffort !== undefined) throw gate('ir.gateReasoningEffort', { where })
   }
 }

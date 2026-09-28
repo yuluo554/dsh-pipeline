@@ -12,10 +12,7 @@
   "ir-malformed-variable.json": "IR_UNKNOWN_VARIABLE",
   "ir-prev-first-prompt.json": "IR_UNKNOWN_VARIABLE",
   "ir-output-schema-subset.json": "IR_OUTPUT_SCHEMA",
-  "m2-skip-policy.json": "IR_UNSUPPORTED_FEATURE",
-  "m2-retry.json": "IR_UNSUPPORTED_FEATURE",
-  "m2-skills.json": "IR_UNSUPPORTED_FEATURE",
   "m2-tools.json": "IR_UNSUPPORTED_FEATURE",
   "m2-reasoning-effort.json": "IR_UNSUPPORTED_FEATURE",
-  "m2-default-policy.json": "IR_UNSUPPORTED_FEATURE"
+  "ir-skip-reference.json": "IR_SKIP_REFERENCE"
 }

@@ -19,6 +19,7 @@ const lib = (name) => import(new URL(`../lib/${name}.js`, import.meta.url))
 const { validateDef } = await lib('schema')
 const { buildIR } = await lib('ir')
 const { compileScript } = await lib('compiler')
+const { cannedSkillBlocks } = await lib('bench')
 
 const dir = join(root, 'data', 'pipelines')
 const outDir = join(root, 'data', 'snapshots')
@@ -30,7 +31,8 @@ for (const file of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
     process.exitCode = 1
     continue
   }
-  const script = compileScript(buildIR(checked.def))
+  const ir = buildIR(checked.def)
+  const script = compileScript(ir, cannedSkillBlocks(ir))
   const target = join(outDir, file.replace(/\.json$/, '.js'))
   writeFileSync(target, script, 'utf8')
   console.log(`✓ ${file} -> data/snapshots/${file.replace(/\.json$/, '.js')} (${script.length} bytes)`)

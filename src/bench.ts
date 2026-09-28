@@ -1,20 +1,27 @@
 /**
- * Offline benchmark suites B1-B3 (plan/04) — zero API dependency, fully
+ * Offline benchmark suites B1-B4 (plan/04) — zero API dependency, fully
  * reproducible. `pnpm bench` (scripts/bench.js) prints the metrics table;
  * test/bench.test.js asserts the same results in CI, so a green test run IS
  * a green benchmark run. The judged objects follow plan/04 真值语义: B1 =
  * compiled script text vs frozen snapshots (byte-exact), B2 = validate ->
  * normalize -> compile accept/reject with expected error codes, B3 = agent()
- * call parameter sequence + event sequence against the mock engine (口径 3).
+ * call parameter sequence + event sequence against the mock engine (口径 3),
+ * B4 = the failure-policy matrix (FR-9): skip / retry / default policy /
+ * cancel-during-retry outcomes and event orders.
  *
- * B4 (failure-policy matrix) lands in M2 together with the policy compiler.
+ * Snapshot freezing needs deterministic skill content: fixtures declaring
+ * `skills` compile against CANNED_SKILLS below (the runner instead resolves
+ * ctx.skills at run time). The same canned map drives B1 and B4.
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { renderSkillContent } from '@deepseek-ai/dsh-skill'
 import { validateDef } from './schema.js'
 import { buildIR } from './ir.js'
+import type { PipelineIR } from './ir.js'
 import { compileScript } from './compiler.js'
+import type { ResolvedSkills } from './compiler.js'
 import { runPipeline } from './runner.js'
 import type { RunOutcome } from './runner.js'
 import { MockWorkflowEngine } from './mock-engine.js'
@@ -31,6 +38,41 @@ export const FULL_CAPS = Object.freeze({
   toolFilter: true,
   persona: true,
 })
+
+/**
+ * Offline stand-in for host skills (plan/04 真值语义: fixtures + canned
+ * content = deterministic snapshots). Keys are the skill names fixtures
+ * declare; shapes mirror dsh-skill's validated definitions so the same
+ * renderSkillContent path as the real runner produces the blocks.
+ */
+export const CANNED_SKILLS: Record<string, { name: string; description: string; source: string; provider: string; content: string }> = {
+  office: {
+    name: 'office',
+    description: 'Office document workflow guidance for briefs and reports.',
+    source: 'canned:bench',
+    provider: 'dsh-pipeline-bench',
+    content: 'Office skill (canned): draft the brief as .docx via the document tool, then verify with the structure checker.',
+  },
+}
+
+/** Render every skill a fixture node declares against CANNED_SKILLS. */
+export function cannedSkillBlocks(ir: PipelineIR): ResolvedSkills | undefined {
+  const blocks: ResolvedSkills = new Map()
+  let any = false
+  for (const node of ir.nodes) {
+    for (const name of node.skills ?? []) {
+      const canned = CANNED_SKILLS[name]
+      if (canned === undefined) {
+        throw new Error(`no canned skill "${name}" for fixture compilation (add it to CANNED_SKILLS)`)
+      }
+      const list = blocks.get(node.id) ?? []
+      list.push(renderSkillContent(canned))
+      blocks.set(node.id, list)
+      any = true
+    }
+  }
+  return any ? blocks : undefined
+}
 
 export interface B1Result {
   files: string[]
@@ -49,10 +91,16 @@ export interface B3Result {
   failures: string[]
 }
 
+export interface B4Result {
+  scenarios: number
+  failures: string[]
+}
+
 export interface BenchReport {
   b1: B1Result
   b2: B2Result
   b3: B3Result
+  b4: B4Result
 }
 
 /** B1 — compile every valid fixture, byte-compare with data/snapshots/. */
@@ -177,6 +225,95 @@ function makeDeps(engine: MockWorkflowEngine): Parameters<typeof runPipeline>[0]
   }
 }
 
+/**
+ * B4 — failure-policy matrix (FR-9, plan/04): inject child failures at exact
+ * agent() call numbers and judge each policy's outcome, node outputs, call
+ * accounting and event order. All scenarios run the `retry-skip` fixture
+ * (fetch=skip:2, enrich=skip, report=abort, verify=abort:1) or inline defs
+ * derived from it.
+ */
+export async function runB4(): Promise<B4Result> {
+  const failures: string[] = []
+  const def = loadDefFixture('retry-skip.json')
+  const check = (scenario: string, ok: boolean, detail: string): void => {
+    if (!ok) failures.push(`${scenario}: ${detail}`)
+  }
+  const nodesOf = (outcome: RunOutcome): Record<string, unknown> =>
+    (outcome.value as { nodes?: Record<string, unknown> } | null)?.nodes ?? {}
+
+  // Scenario 1 — skip policy: a failed child assigns null and the run completes.
+  // Call order: fetch#1, enrich#1, report#1, verify#1 — fail enrich (#2).
+  {
+    const engine = new MockWorkflowEngine({ behavior: { failAtCalls: [2] } })
+    const outcome = await runPipeline(makeDeps(engine), def, 'b4-skip')
+    check('skip outcome', outcome.stopReason === 'completed' && outcome.agentsStarted === 4, `outcome ${JSON.stringify(outcome)}`)
+    const nodes = nodesOf(outcome)
+    check('skip null output', nodes['enrich'] === null, `enrich ${JSON.stringify(nodes['enrich'])}`)
+    check('skip downstream runs', typeof nodes['report'] === 'string' && typeof nodes['verify'] === 'string', `nodes ${JSON.stringify(nodes)}`)
+    check('skip events', engine.events.includes('agent-end:2:Enrich:failed') && engine.events[engine.events.length - 1] === 'workflow:end:completed', `events ${JSON.stringify(engine.events)}`)
+  }
+
+  // Scenario 2 — retry recovers: fetch fails once, its second attempt succeeds.
+  // Calls: fetch#1(fail) fetch#2 enrich report verify = 5 agents started.
+  {
+    const engine = new MockWorkflowEngine({ behavior: { failAtCalls: [1] } })
+    const outcome = await runPipeline(makeDeps(engine), def, 'b4-retry')
+    check('retry outcome', outcome.stopReason === 'completed' && outcome.agentsStarted === 5, `outcome ${JSON.stringify(outcome)}`)
+    check('retry reruns the node', typeof nodesOf(outcome)['fetch'] === 'string', `fetch ${JSON.stringify(nodesOf(outcome)['fetch'])}`)
+    check('retry call bound', engine.lastRequest?.maxTotalAgents === 7, `maxTotalAgents ${engine.lastRequest?.maxTotalAgents}`)
+    check('retry events', engine.events.includes('agent-end:1:Fetch:failed') && engine.events.includes('agent-start:2:Fetch'), `events ${JSON.stringify(engine.events)}`)
+  }
+
+  // Scenario 3 — retry exhausted under abort: run errors naming attempts.
+  // fetch is overridden to abort (the fixture ships it as skip): 3 failed
+  // attempts -> "failed at prompt 1 after 3 attempt(s)".
+  {
+    const aborting = { ...def, nodes: def.nodes.map((node) => (node.id === 'fetch' ? { ...node, failurePolicy: 'abort' as const } : node)) }
+    const engine = new MockWorkflowEngine({ behavior: { failAtCalls: [1, 2, 3] } })
+    const outcome = await runPipeline(makeDeps(engine), aborting, 'b4-retry-abort')
+    check('retry-abort outcome', outcome.stopReason === 'error' && outcome.agentsStarted === 3, `outcome ${JSON.stringify(outcome)}`)
+    check('retry-abort message', outcome.error?.includes('node "fetch" failed at prompt 1 after 3 attempt(s)') === true, `error ${JSON.stringify(outcome.error)}`)
+    check('retry-abort events', engine.events[engine.events.length - 1] === 'workflow:end:error', `events ${JSON.stringify(engine.events)}`)
+  }
+
+  // Scenario 4 — retry exhausted under skip: null output, run continues.
+  // Calls: fetch ×3 all fail -> null, then enrich, report, verify succeed.
+  {
+    const exhausted = { ...def, nodes: def.nodes.map((node) => (node.id === 'fetch' ? { ...node, failurePolicy: 'skip' as const } : node)) }
+    const engine = new MockWorkflowEngine({ behavior: { failAtCalls: [1, 2, 3] } })
+    const outcome = await runPipeline(makeDeps(engine), exhausted, 'b4-retry-skip')
+    check('retry-skip outcome', outcome.stopReason === 'completed' && outcome.agentsStarted === 6, `outcome ${JSON.stringify(outcome)}`)
+    check('retry-skip null', nodesOf(outcome)['fetch'] === null, `fetch ${JSON.stringify(nodesOf(outcome)['fetch'])}`)
+    check('retry-skip continues', typeof nodesOf(outcome)['report'] === 'string', `nodes ${JSON.stringify(nodesOf(outcome))}`)
+  }
+
+  // Scenario 5 — options.defaultFailurePolicy applies to nodes without one.
+  {
+    const defaulted = {
+      name: 'default-policy',
+      description: 'pipeline-wide skip default',
+      options: { defaultFailurePolicy: 'skip' as const },
+      nodes: [
+        { id: 'solo', label: 'Solo', prompts: ['only prompt'] },
+      ],
+    }
+    const engine = new MockWorkflowEngine({ behavior: { failAtCalls: [1] } })
+    const outcome = await runPipeline(makeDeps(engine), defaulted as typeof def, 'b4-default')
+    check('default-policy outcome', outcome.stopReason === 'completed' && outcome.agentsStarted === 1, `outcome ${JSON.stringify(outcome)}`)
+    check('default-policy null', nodesOf(outcome)['solo'] === null, `solo ${JSON.stringify(nodesOf(outcome)['solo'])}`)
+  }
+
+  // Scenario 6 — cancellation unwinds a retry loop (no runaway reruns).
+  {
+    const engine = new MockWorkflowEngine({ behavior: { cancelAfterCalls: 1 } })
+    const outcome = await runPipeline(makeDeps(engine), def, 'b4-cancel')
+    check('cancel-during-retry outcome', outcome.stopReason === 'cancelled' && outcome.agentsStarted === 1, `outcome ${JSON.stringify(outcome)}`)
+    check('cancel-during-retry events', engine.events[engine.events.length - 1] === 'workflow:end:cancelled', `events ${JSON.stringify(engine.events)}`)
+  }
+
+  return { scenarios: 6, failures }
+}
+
 function loadDefFixture(file: string): PipelineDef {
   const parsed: unknown = JSON.parse(readFileSync(join(DATA_DIR, 'pipelines', file), 'utf8'))
   const checked = validateDef(parsed)
@@ -189,7 +326,8 @@ function compileFixture(path: string): string | null {
     const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
     const checked = validateDef(parsed)
     if (!checked.ok) return null
-    return compileScript(buildIR(checked.def))
+    const ir = buildIR(checked.def)
+    return compileScript(ir, cannedSkillBlocks(ir))
   } catch {
     return null
   }

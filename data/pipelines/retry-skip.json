@@ -1,0 +1,10 @@
+{
+  "name": "retry-skip",
+  "description": "Failure-policy showcase: a retryable skippable fetch, a skippable enrichment, a default-abort report, and a retrying abort verifier.",
+  "nodes": [
+    { "id": "fetch", "label": "Fetch", "prompts": ["Collect the key facts about {{input}}."], "failurePolicy": "skip", "retry": 2 },
+    { "id": "enrich", "label": "Enrich", "prompts": ["Suggest one angle to deepen the treatment of {{input}}."], "failurePolicy": "skip" },
+    { "id": "report", "label": "Report", "prompts": ["Write a short report brief about {{input}}."] },
+    { "id": "verify", "label": "Verify", "prompts": ["Verify the report's claims about {{input}} in one paragraph."], "retry": 1 }
+  ]
+}

@@ -1,5 +1,5 @@
-// dsh-pipeline 0.1.0 — compiled pipeline "output-schema".
-// 2 nodes, 2 agent calls; failure policy: abort (M1).
+// dsh-pipeline 0.2.0 — compiled pipeline "output-schema".
+// 2 nodes, 2 agent calls max; policies: keywords=abort, tagline=abort.
 const out = {};
 phase("Keywords");
 {

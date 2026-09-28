@@ -1,5 +1,5 @@
-// dsh-pipeline 0.1.0 — compiled pipeline "three-node-two-models".
-// 3 nodes, 3 agent calls; failure policy: abort (M1).
+// dsh-pipeline 0.2.0 — compiled pipeline "three-node-two-models".
+// 3 nodes, 3 agent calls max; policies: outline=abort, review=abort, write=abort.
 const out = {};
 phase("Outline");
 {

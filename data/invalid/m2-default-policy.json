@@ -1,8 +1,0 @@
-{
-  "name": "bad-default-policy",
-  "description": "options.defaultFailurePolicy other than abort is an M2 feature; the M1 compiler rejects it (IR_UNSUPPORTED_FEATURE).",
-  "options": { "defaultFailurePolicy": "skip" },
-  "nodes": [
-    { "id": "a", "prompts": ["hello"] }
-  ]
-}

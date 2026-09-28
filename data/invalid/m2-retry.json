@@ -1,7 +1,0 @@
-{
-  "name": "bad-retry",
-  "description": "retry attempts are an M2 feature; the M1 compiler rejects them (IR_UNSUPPORTED_FEATURE).",
-  "nodes": [
-    { "id": "a", "prompts": ["hello"], "retry": 2 }
-  ]
-}
