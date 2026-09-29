@@ -2,6 +2,11 @@
 node_modules/
 lib/
 
+# pnpm stores (never commit package caches — M5 incident 8defff4 lesson)
+.clean-store/
+.verify-store/
+.pnpm-store/
+
 # env & secrets (M5 发布门：git ls-files 不得出现)
 .env
 .env.*

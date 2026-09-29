@@ -38,8 +38,9 @@ const PATTERNS = [
   ['win-user-path', /[C-Z]:\\+Users\\+[A-Za-z0-9_.-]+/i, (m) => /:\\+Users\\+xx\b/i.test(m)],
   ['intranet-ip', /\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/, null],
   // Reserved documentation domains are placeholders by construction.
+  // git@github.com is the standard SSH remote form, not a personal identity.
   ['email', /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/,
-    (m) => /@(?:example\.(?:com|org)|users\.noreply\.github\.com)$/i.test(m)],
+    (m) => /@(?:example\.(?:com|org)|users\.noreply\.github\.com|github\.com)$/i.test(m)],
 ]
 
 const scanText = (text, where, hits) => {

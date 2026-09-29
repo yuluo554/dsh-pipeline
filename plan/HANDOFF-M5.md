@@ -25,18 +25,19 @@
   组合树 `workflow-ptc` enabled + inventory 200 过认证栅栏 + bundle 在启动图 combo 服务（452KB 组）
 - 测试：99/99 全绿；B1-B4 ALL GREEN（0.2.0-rc.1 类型下 pnpm lint 一次过）
 
-## 下一里程碑待办（plan/05 M5，发布）
+## 下一里程碑待办（plan/05 M5，发布）—— 2026-09-29 执行后状态
 
-- [ ] 【串行】README 完整化（简介/特性/mermaid 架构/快速开始/评测表/限制/免责/已知环境问题）+ LICENSE 已在
-- [ ] 【串行】**干净环境验证**：新目录 clone + 全新 Node 环境（不依赖开发机全局包）按 README 逐条跑通；发现的问题修复并加回归测试
-- [ ] 【串行】脱敏四步 + 历史三扫（留档 plan/RELEASE-M5.md；本仓库无远端、未推送，第 4 步历史重写仅在推送后适用）
-  1. `git ls-files | grep -iE "\.env$|\.key$|secret|token"` 为空
-  2. 内容级扫描全部跟踪文本：密钥赋值/手机号/身份证/个人路径 `C:\Users\xx`/内网 IP/邮箱
-  3. 留档文档用占位符指代敏感字面值
-  4. 推送后才涉及历史重写 + force push + 终验三扫
-- [ ] 【并行】npm 发包（预构建 lib/）→ 仓库打 `dsh-plugin` topic → awesome-dsh-plugin PR（标注回应 #7704）→ #7704 回帖 → dsh-market 提交
-- **演示物**：GitHub 公开可访问；npm 可 `dsh plugin add`
-- **DoD**：plan/00 验收门全部打勾；发布后复核 = GitHub 全新 clone 重跑全量测试
+- [x] 【串行】README 完整化（简介/特性/mermaid 架构/快速开始/评测表/限制/免责/已知环境问题）+ LICENSE 已在（7cf05ab；兼容 floor 同步提升 `>=0.2.0-rc.1`，plan/06 决策行）
+- [x] 【串行】**干净环境验证**：隔离 store 全新 clone 按 README 逐条跑通 + 实机回路；**发现 #1 Windows clone CRLF 挂 B1 → .gitattributes eol=lf + EOL 守门测试**（459733d）；发布后 GitHub 全新 clone 复核 101/101
+- [x] 【串行】脱敏四步 + 历史三扫（留档 plan/RELEASE-M5.md；**审查固化为 scripts/release-audit.mjs + 守门测试随全量测试跑**，fbdaa3c；全历史 0 命中，首推前执行）
+- [ ] 【并行】npm 发包（预构建 lib/；pack 预检 74 文件无泄漏已过）→ **阻塞：本机未登录 npm（ENEEDAUTH），用户动作**（命令见 RELEASE-M5 §3）
+  - [x] 仓库打 `dsh-plugin` topic（+workflow/orchestration/agent/pipeline，已回读确认）
+  - [ ] awesome-dsh-plugin PR（标注回应 #7704）——待发包，文案草稿 RELEASE-M5 §4
+  - [ ] #7704 回帖——待发包，草稿同上
+  - [ ] dsh-market 提交——收录 awesome 全量，awesome 入列即覆盖
+- **演示物**：GitHub 公开可访问 ✅（**https://github.com/yuluo554/dsh-pipeline**，12 提交，CI 首跑 28s 绿；HTTPS 推送因 OAuth 缺 workflow scope 被拒 → 切 SSH 一次过，坑记 RELEASE-M5 §5）；npm 可 `dsh plugin add` ⬜ 待发包复核
+- **DoD**：plan/00 验收门全部打勾 ✅（npm 相关两项随发包闭环）；发布后复核 ✅
+- 测试现状：**101/101**（99 + EOL 守门 + 脱敏守门）；B1-B4 ALL GREEN；远端 = origin（SSH）yuluo554/dsh-pipeline
 
 ## 人工门清单（多代合并欠账；M5 顺手补或明示弃线）
 
@@ -115,6 +116,11 @@
 5. **会话恢复语义（非坑，实测备忘）**：`Session.create(id, seedEvents)` 走 replay/fork 路径，
    会在继承前缀切点补一条 `session/end-seed`（无 `{inherited:true}` 标签，data 为 `{}`），
    故重建后 `seq = 原长 + 1`；"fresh fork child" 才带 `inherited: true`
+7. **shell cwd 漂移事故（M5 实录，RELEASE-M5 §5）**：验证用的 clone 会话会把后续命令的 cwd
+   停在 clone 里——`git add -A && commit && push` 曾在复核 clone 内执行，把隔离 pnpm store
+   推上远端（CI 守门拦截，force push 回滚）。纪律：**git 操作前显式 cd 目标仓库并核对
+   `git log -1` + `git remote -v`**；pnpm store 目录（.clean-store/.verify-store/.pnpm-store）
+   已进 .gitignore
 
 ## M4 DoD 逐项 checklist（来自 plan/05，全部留痕）
 
