@@ -161,8 +161,9 @@ dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow
 | B3 mock 引擎 e2e | mock WorkflowEngine × 4 场景 | agent() 调用参数序列 + 事件序完全匹配；取消后无残留调用 | **4/4，完全匹配** |
 | B4 策略矩阵 | 注入失败节点 × abort/skip/retry × 6 场景 | 各策略结果/事件序符合语义（skip 置 null 继续；retry 节点级重跑、耗尽按策略收场；取消打断重试不失控） | **6/6，完全匹配** |
 
-测试套件（`pnpm test`）共 100 例，全部离线：B1-B4 断言 + 真实 PTC 引擎（取消/策略）+
-真实 Session 集成（运行卡事件族落盘/重建/卸载兼容）+ form-model/web/client-bundle。
+测试套件（`pnpm test`）共 101 例，全部离线：B1-B4 断言 + 真实 PTC 引擎（取消/策略）+
+真实 Session 集成（运行卡事件族落盘/重建/卸载兼容）+ form-model/web/client-bundle +
+脱敏守门（工作区 + 全历史）。
 快照真值冻结口径见 [`data/README.md`](./data/README.md)。
 
 ## 限制
@@ -207,7 +208,8 @@ pnpm install
 pnpm build        # tsc -> lib/ + esbuild client bundle
 pnpm test         # node:test，99 例，全离线
 pnpm bench        # B1-B4 指标表（ALL GREEN 门槛）
-pnpm lint         # host + client 双 tsconfig
+pnpm lint           # host + client 双 tsconfig
+pnpm release:audit  # 脱敏审查：文件名门 + 内容级扫描 + 全历史扫描（发布门，随测试运行）
 ```
 
 仓库导览：`src/` 宿主半（schema/ir/compiler/runner/web/entry/run-events/run-recorder）、

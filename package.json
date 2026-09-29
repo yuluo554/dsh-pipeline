@@ -51,6 +51,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/build-client.mjs",
     "lint": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json",
+    "release:audit": "node scripts/release-audit.mjs",
     "test": "pnpm run build && node --test",
     "bench": "pnpm run build && node scripts/bench.js"
   },
