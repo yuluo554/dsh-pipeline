@@ -2,7 +2,10 @@
 
 > 项目：DeepSeek Harness 多节点工作流编排插件（回应 [dsh#7704](https://github.com/deepseek-ai/deepseek-harness/discussions/7704)）。
 > 方法论：ai-tool-project-sprint（plan 先行 / 每周可演示 / 验收门回写 / 干净环境发布门）。
-> 状态：**M4 已完成**。本文档集即任务编排产物；开发须按 plan/05 里程碑顺序执行，不跳步。
+> 状态：**M4 已完成 + 0.2.0-rc.1 适配完成（2026-09-29）**。本机 dsh 已升级 0.2.0-rc.1（next 标签），
+> 官方 workflow 引擎 worker-thread → PTC 的破坏性变更已适配（patch 行/依赖 pin/真实引擎测试基建），
+> 99/99 测试 + B1-B4 ALL GREEN + 实机冒烟留证（见 HANDOFF-M5 与 06 决策行）。本文档集即任务编排产物；
+> 开发须按 plan/05 里程碑顺序执行，不跳步。
 
 ## 里程碑状态表（完成一项回写一项 ✅）
 

@@ -4,13 +4,26 @@
 
 ## 当前进度
 
-- 里程碑：M4（已完成于 2026-09-29）
-- 工作区：`D:\ProgramData\zcode\dsh-1\dsh-pipeline`；git：本地 `main` 无远端，M4 收尾后待提交（第五个提交）
-- 插件状态：**0.2.0 已 link 进本机 web profile 且激活验证通过**（`did not activate` 计数 0；
-  M4 未新增 bundle patch 需求；host lib 与 client bundle 重建后重启 dsh 即生效）
-- 演示证据：`plan/m4-demo-log.md`（事件链测试 + 真实 Session 集成 + 实机装载/bundle/RPC 留证）
-- 测试：99/99 全绿（新增 run-events 7、run-recorder 6、web recorder 3、session-integration 1、
-  bundle 冒烟扩容 1）；B1-B4 ALL GREEN（runner 仅加可选 `onRunStart` 钩子，冻结口径未动）
+- 里程碑：M4（已完成于 2026-09-29）→ **0.2.0-rc.1 适配（完成于 2026-09-29，第六个提交 2c6cf4c）**
+- 工作区：`D:\ProgramData\zcode\dsh-1\dsh-pipeline`；git：本地 `main` 无远端
+- 本机 dsh 已升级 **0.1.5-rc.1 → 0.2.0-rc.1**（npm `next` 标签；`latest` 仍指 0.1.7-rc.2；
+  0.2.0-rc.1 发布于 2026-09-28，tag dsh-v0.2.0-rc.1）
+- **0.2.0 破坏性变更（已适配）**：官方 workflow 引擎换血——`dsh-workflow-worker-thread`
+  （0.1.5-rc.3 后不再发布）→ `@deepseek-ai/dsh-workflow-ptc`（共享沙箱 Node PTC 运行时里的
+  vm realm；guest 以 data: URL 模块在受限进程执行，跨 realm 仅许无损 JSON）。适配面：
+  - bundle patch 行 `workflow-worker-thread` → `workflow-ptc`（web profile 仍默认 disabled: true，
+    覆盖位翻转即可；`tool-workflow` 保持禁用不变）
+  - 依赖 pin 全量 0.1.5-rc.1 → 0.2.0-rc.1（cordis 4.0.2 → 4.0.4）；devDep 换 `dsh-workflow-ptc`
+  - **seam 词汇零变化**（实测 tsc 一次过）：`WorkflowStartRequest`/`WorkflowRun`/`WorkflowResult`/
+    `WorkflowAgentInfo` 等全兼容；`workflow/*` 事件名与负载不变（run-recorder/run-events 无需改）；
+    runner 已传 `meta`（0.2.0 起必填且强校验——恰好早已满足）；agent() 选项仍只许
+    label/phase/schema/provider/model（effort/isolation/agentType 仍大声拒绝 → FR-11 闸门维持）
+  - 真实引擎测试重写：PtcWorkflowEngine + 桩 ptcRuntime（从引擎 program 串抽出 guest 的
+    data: URL 进程内直跑真实 guest）+ 桩 sandboxPolicy；**桩 subagents 的 run 必须带 `id`**
+    （0.2.0 guest 把 run.id 写进 agent-start 负载 childId）；PTC config 无 disposeGraceMs
+- 演示证据：`plan/m4-demo-log.md`（M4）；0.2.0 适配实机留证 = 0 did-not-activate +
+  组合树 `workflow-ptc` enabled + inventory 200 过认证栅栏 + bundle 在启动图 combo 服务（452KB 组）
+- 测试：99/99 全绿；B1-B4 ALL GREEN（0.2.0-rc.1 类型下 pnpm lint 一次过）
 
 ## 下一里程碑待办（plan/05 M5，发布）
 
@@ -34,8 +47,9 @@
   `three-node-two-models.json`；M4 增补两条——① 运行页发起 → 会话流观察卡片状态流转；
   ② 卡片耗时/token 与会话统计交叉核对
 - [ ] skills 在线验证（M2 顺延）：真实 `ctx.skills`（skill-filesystem）链路 + 编辑器技能多选真实数据展示
-- [ ] dsh 升级决策（M2/M3/M4 连续顺延，用户口头许可仍在挂）：0.1.5-rc.1 无 agent() toolFilter → FR-11 维持闸门；
-  升级 = 重锚 14 依赖 + 全量重核 + 重跑基准；0.1.7 引擎若支持 toolFilter/effort 则编辑器三个只读字段可解封
+- [x] dsh 升级决策（M2/M3/M4 连续顺延；**2026-09-29 用户确认升级，已完成**）：本机 dsh 0.2.0-rc.1
+  （见"当前进度"）。0.2.0 引擎（PTC）仍无 toolFilter，effort/isolation/agentType 仍拒 →
+  **FR-11 闸门维持**，编辑器三个只读字段继续只读；依赖锚定已重锚 0.2.0-rc.1 + 全量重核（tsc/99 例/基准）
 
 ## 既定口径清单（M4 期末冻结；动了会打挂基准——改前对照，改后重跑 B1-B4）
 
@@ -52,9 +66,10 @@
    类型 import）；M4 未新增运行时依赖（渲染器 react + 内联样式）
 5. **web API 面冻结**：/api/dsh-pipeline/{inventory,def,validate,save,catalog,run}；统一 `{error}`
    4xx/5xx + 业务结果 200；run 请求体 {name,input,sessionId}，request.signal 即取消通路
-6. **依赖锚定 M4 修订**（口径 7 扩容至 15）：原 13 + `@deepseek-ai/dsh-client-ui-chat`
-   （0.1.5-rc.1，type-only：ChatNodeDataMap 合并 + ChatNode<'pipeline-run'> 键型）；
-   全部 type-only/d.ts 消费；devDep 另加 esbuild/react(仅测试)/@types/react
+6. **依赖锚定 0.2.0-rc.1 修订**（口径 7 扩容至 15）：原 13 + `@deepseek-ai/dsh-client-ui-chat`
+   （type-only：ChatNodeDataMap 合并 + ChatNode<'pipeline-run'> 键型）；**版本全量
+   0.2.0-rc.1 + cordis 4.0.4**（0.1.5-rc.1/cordis 4.0.2 时代口径作废）；全部 type-only/d.ts 消费；
+   devDep 另加 esbuild/react(仅测试)/@types/react + `dsh-workflow-ptc`（真实引擎测试）
 7. **浏览器侧类型纪律**：席位键一律经官方包 d.ts 声明合并（ambient.d.ts 现含 5 个
    `import type {}`，新增 dsh-client-ui-chat/client）；**用户空间 `declare module
    '@deepseek-ai/cordis'` 禁用**；client tsconfig lib 必须含 ESNext
@@ -86,8 +101,17 @@
    powershell 报语法错）：powershell -Command 一律用**单引号**包裹整条命令
 4. 沿袭 M3：插件与宿主各解析一份 npm 包副本（instanceof 跨接缝失效，按 code/字段判别）；
    dsh-client-ui-slots 在 profile 的符号链接悬空（读类型用仓库 pnpm 副本）；web profile 引擎默认
-   禁用（patch 已兜）；`dsh --help` 验装捷径失效；后台 dsh 清理用 powershell Get-CimInstance
-   按 CommandLine 匹配（注意坑 3 的引号）；`python` 是商店 stub
+   禁用（patch 已兜，0.2.0 引擎 id = `workflow-ptc`）；`dsh --help` 验装捷径失效；
+   后台 dsh 清理用 powershell Get-CimInstance 按 CommandLine 匹配（注意坑 3 的引号）或
+   netstat -ano 查 LISTENING PID 后 taskkill；`python` 是商店 stub
+5. **npm 全局安装段错误（0.2.0 适配实测）**：Git Bash 下 `npm i -g` 连续段错误（npm 包装脚本
+   `"$NODE_EXE" "$NPM_CLI_JS"` 处崩）；绕法 = 直接 `node "C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js" i -g <pkg>`（一次过）。判别口径照 crash-loop-rescue：同命令重试 ≤3 次即换通道
+6. **0.2.0-rc.1 包集合变化（适配实录）**：`dsh-workflow-worker-thread` 停更于 0.1.5-rc.3（0.2.0 不再
+   发布）；新增 `dsh-workflow-ptc` + `dsh-ptc-runtime`(+node)；release notes 唯一结构性变化 = 自动化
+   任务改为可选插件包；引擎 config = {provider:'spawn', maxConcurrentAgents(0=自动),
+   maxTotalAgents, maxItemsPerCall, syncTimeoutMs}（无 disposeGraceMs）；engine.start 的 meta
+   必填强校验（META_INVALID 逐字段报错）；client bundle 在启动图以 combo URL 服务
+   （`/plugins/??<id>/client.js,…&rev=<rev>`，rev 从外壳 HTML 取，手拼 rev 404）
 5. **会话恢复语义（非坑，实测备忘）**：`Session.create(id, seedEvents)` 走 replay/fork 路径，
    会在继承前缀切点补一条 `session/end-seed`（无 `{inherited:true}` 标签，data 为 `{}`），
    故重建后 `seq = 原长 + 1`；"fresh fork child" 才带 `inherited: true`
@@ -109,7 +133,7 @@
 ```sh
 # 安装到本地 dsh（在仓库父目录 dsh-1/ 执行；开发回路）
 dsh plugin --profile web add ./dsh-pipeline
-dsh --profile web --dump-config          # 验证层挂载 + 引擎已启用（grep workflow-worker-thread）
+dsh --profile web --dump-config          # 验证层挂载 + 引擎已启用（grep workflow-ptc）
 dsh --profile web --no-open --port 3095  # 后台启动；apply 日志 = 装载证据（约 13 秒）
 dsh plugin --profile web remove dsh-pipeline
 
