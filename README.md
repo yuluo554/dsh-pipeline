@@ -122,8 +122,8 @@ web profile 默认禁用的 `workflow-ptc` 引擎（本插件是它的专用消�
 
 定义格式完整字段（`prompts[]` / `model` / `skills` / `dependsOn` / `outputSchema` /
 `failurePolicy` / `retry` / `options.defaultFailurePolicy`）见
-[`data/pipelines/`](./data/pipelines/) 的 7 份示例与
-[`plan/03-模块详设.md`](./plan/03-模块详设.md)。
+[`data/pipelines/`](./data/pipelines/) 的 7 份示例与 GitHub 仓库
+[`plan/03-模块详设.md`](https://github.com/yuluo554/dsh-pipeline/blob/main/plan/03-%E6%A8%A1%E5%9D%97%E8%AF%A6%E8%AE%BE.md)。
 
 ### 运行
 
@@ -161,7 +161,7 @@ dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow
 | B3 mock 引擎 e2e | mock WorkflowEngine × 4 场景 | agent() 调用参数序列 + 事件序完全匹配；取消后无残留调用 | **4/4，完全匹配** |
 | B4 策略矩阵 | 注入失败节点 × abort/skip/retry × 6 场景 | 各策略结果/事件序符合语义（skip 置 null 继续；retry 节点级重跑、耗尽按策略收场；取消打断重试不失控） | **6/6，完全匹配** |
 
-测试套件（`pnpm test`）共 99 例，全部离线：B1-B4 断言 + 真实 PTC 引擎（取消/策略）+
+测试套件（`pnpm test`）共 100 例，全部离线：B1-B4 断言 + 真实 PTC 引擎（取消/策略）+
 真实 Session 集成（运行卡事件族落盘/重建/卸载兼容）+ form-model/web/client-bundle。
 快照真值冻结口径见 [`data/README.md`](./data/README.md)。
 
