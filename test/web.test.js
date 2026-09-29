@@ -10,7 +10,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { registerWebRoutes } from '../lib/web.js'
 import { MockWorkflowEngine } from '../lib/mock-engine.js'
-import { fixture, makeStubFs, FULL_CAPS, FAKE_AGENT } from './helpers.js'
+import { fixture, makeStubFs, FULL_CAPS } from './helpers.js'
 import { PIPELINES_DIR } from '../lib/store.js'
 
 const DEMO = [`${PIPELINES_DIR}/three-node-two-models.json`, JSON.stringify(fixture('three-node-two-models.json'))]
@@ -20,9 +20,20 @@ const DEMO = [`${PIPELINES_DIR}/three-node-two-models.json`, JSON.stringify(fixt
  * path, body) -> Response. The run route needs a sessionController whose
  * resolveAgent hands back the stub agent, a provider registry, and an engine.
  */
-function install({ files = [], engine = new MockWorkflowEngine(), skills, catalog } = {}) {
+function install({ files = [], engine = new MockWorkflowEngine(), skills, catalog, sessionAppend } = {}) {
   const routes = new Map()
   const effects = []
+  const hostHandlers = new Map()
+  const sessionLog = []
+  const agent = {
+    session: {
+      id: 'stub-session',
+      append(type, data) {
+        if (sessionAppend !== undefined) sessionAppend(type, data)
+        sessionLog.push({ type, data })
+      },
+    },
+  }
   const ctx = {
     fs: makeStubFs(new Map(files)),
     workflowEngine: engine,
@@ -42,7 +53,7 @@ function install({ files = [], engine = new MockWorkflowEngine(), skills, catalo
     },
     sessionController: {
       async resolveAgent(sessionId) {
-        return sessionId === 'sess-1' ? { agent: FAKE_AGENT } : { error: { code: 'session/not-found', message: 'no such session' } }
+        return sessionId === 'sess-1' ? { agent } : { error: { code: 'session/not-found', message: 'no such session' } }
       },
       async modelCatalog() {
         return catalog ?? {
@@ -54,6 +65,10 @@ function install({ files = [], engine = new MockWorkflowEngine(), skills, catalo
       },
     },
     ...(skills !== undefined ? { skills } : {}),
+    on(event, handler) {
+      hostHandlers.set(event, handler)
+      return () => hostHandlers.delete(event)
+    },
     effect(fn, label) {
       effects.push({ fn, label })
     },
@@ -70,7 +85,7 @@ function install({ files = [], engine = new MockWorkflowEngine(), skills, catalo
     }
     return handler(new Request(`https://host.test/api/dsh-pipeline${path}`, init))
   }
-  return { ctx, request, effects }
+  return { ctx, request, effects, sessionLog, hostHandlers }
 }
 
 test('routes register under /api/dsh-pipeline with buffered bodies', () => {
@@ -191,4 +206,59 @@ test('aborting the request settles the run as cancelled, not completed', async (
   // Either the engine observed the abort (cancelled) or the run completed
   // before the abort landed; both must be well-formed answers.
   if (body.ok === false) assert.match(body.error, /cancel|abort/i)
+})
+
+// ---------------------------------------------------------------------------
+// M4 run-card recording: the web run projects its lifecycle into the parent
+// session log (pipeline-run/* events). The mock engine emits no host events,
+// so the web-path sequence is run-start -> run-end; the per-agent events are
+// covered in run-recorder.test.js.
+// ---------------------------------------------------------------------------
+
+test('POST /run records run-start and run-end into the parent session log', async () => {
+  const engine = new MockWorkflowEngine({
+    behavior: { responses: { Outline: 'OUT', Review: 'REV', Write: 'FINAL' } },
+  })
+  const { request, sessionLog, hostHandlers } = install({ files: [DEMO], engine })
+  const body = await (await request('POST', '/run', { name: 'three-node-two-models', input: 'coffee', sessionId: 'sess-1' })).json()
+  assert.equal(body.ok, true)
+
+  assert.deepEqual(sessionLog.map((entry) => entry.type), ['pipeline-run/run-start', 'pipeline-run/run-end'])
+  const [start, end] = sessionLog
+  assert.equal(start.data.name, 'three-node-two-models')
+  assert.equal(typeof start.data.runId, 'string')
+  assert.match(start.data.runId, /^mock-run-/)
+  assert.deepEqual(start.data.nodes.map((node) => [node.id, node.label, node.model ?? null]), [
+    ['outline', 'Outline', 'deepseek-chat'],
+    ['review', 'Review', null],
+    ['write', 'Write', 'deepseek-reasoner'],
+  ])
+  assert.equal(end.data.runId, start.data.runId)
+  assert.equal(end.data.stopReason, 'completed')
+  assert.equal(typeof end.data.durationMs, 'number')
+  // The recorder's listeners live exactly for the run: all detached after.
+  assert.equal(hostHandlers.size, 0)
+})
+
+test('POST /run records an error run-end naming the failing node', async () => {
+  const engine = new MockWorkflowEngine({ behavior: { failAtCalls: [1] } })
+  const { request, sessionLog } = install({ files: [DEMO], engine })
+  const body = await (await request('POST', '/run', { name: 'three-node-two-models', input: 'x', sessionId: 'sess-1' })).json()
+  assert.equal(body.ok, false)
+  assert.deepEqual(sessionLog.map((entry) => entry.type), ['pipeline-run/run-start', 'pipeline-run/run-end'])
+  const end = sessionLog.at(-1).data
+  assert.equal(end.stopReason, 'error')
+  assert.match(end.error, /failed at prompt 1/)
+})
+
+test('a session whose append fails never breaks the run (recording disabled)', async () => {
+  const engine = new MockWorkflowEngine({
+    behavior: { responses: { Outline: 'OUT', Review: 'REV', Write: 'FINAL' } },
+  })
+  // Simulate the cross-plugin seam: the resolved agent's session rejects
+  // every append (foreign session object without a working log).
+  const { request } = install({ files: [DEMO], engine, sessionAppend: () => { throw new Error('log closed') } })
+  const body = await (await request('POST', '/run', { name: 'three-node-two-models', input: 'coffee', sessionId: 'sess-1' })).json()
+  assert.equal(body.ok, true, 'recording failure must not affect the run outcome')
+  assert.match(body.text, /completed/)
 })

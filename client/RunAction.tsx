@@ -130,6 +130,7 @@ export function RunAction({ sessionId, t }: { sessionId: string; t: Translate })
                   <span style={{ flex: 1 }} />
                   <span style={hint}>{sessionId}</span>
                 </div>
+                {running && <div style={hint}>{t('run.cardHint')}</div>}
               </>
             )}
 

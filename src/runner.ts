@@ -18,7 +18,7 @@
  * skill named. The registry is only consulted when the pipeline actually
  * declares skills.
  */
-import type { WorkflowEngine, WorkflowResult } from '@deepseek-ai/dsh-workflow'
+import type { WorkflowEngine, WorkflowResult, WorkflowRun } from '@deepseek-ai/dsh-workflow'
 import type { SubagentCapabilities } from '@deepseek-ai/dsh-subagent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { renderSkillContent } from '@deepseek-ai/dsh-skill'
@@ -47,6 +47,12 @@ export interface RunDeps {
   signal?: AbortSignal
   /** Host skills registry; required only when the pipeline declares skills. */
   skills?: SkillResolver
+  /**
+   * Called synchronously with the accepted run handle right after
+   * engine.start (M4 run-recorder hook). The run has not started executing,
+   * so an observer that appends here races nothing.
+   */
+  onRunStart?: (run: WorkflowRun) => void
 }
 
 export interface RunOutcome {
@@ -85,6 +91,7 @@ export async function runPipeline(deps: RunDeps, def: PipelineDef, input: string
     const detail = err instanceof Error ? err.message : String(err)
     throw new PipelineError(ErrorCode.engine, t('runner.engineRejected', { name: ir.name, detail }))
   }
+  deps.onRunStart?.(run)
 
   const onAbort = (): void => run.cancel('parent signal aborted')
   deps.signal?.addEventListener('abort', onAbort, { once: true })

@@ -22,7 +22,9 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SkillSummary } from '@deepseek-ai/dsh-skill'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 import { runPipeline } from './runner.js'
-import type { SkillResolver } from './runner.js'
+import type { RunOutcome, SkillResolver } from './runner.js'
+import { createPipelineRunRecorder } from './run-recorder.js'
+import type { RecorderHost, RecorderSession } from './run-recorder.js'
 import { listDefs, loadDef, readRawDef, saveDef } from './store.js'
 import { validateDef } from './schema.js'
 import { isValidDefName } from './def-types.js'
@@ -212,20 +214,45 @@ async function runFromWeb(
   }
 
   const def = await loadDef(ctx, name)
-  const outcome = await runPipeline(
-    {
-      engine: ctx.workflowEngine,
-      caps: provider.capabilities,
-      parent,
-      providerName,
-      signal,
-      ...(skillsOf(ctx) !== undefined ? { skills: skillsOf(ctx) } : {}),
-    },
-    def,
-    input,
-  )
-  if (outcome.stopReason !== 'completed') {
-    return { ok: false, error: formatFailure(def, outcome).message }
+  // M4 run card: project the run into the parent session's event log. The
+  // recorder subscribes its own listeners and never lets a recording failure
+  // touch the run outcome (guarded appends, dispose in finally).
+  const recorder = createPipelineRunRecorder(ctx as unknown as RecorderHost)
+  const nodePlans = buildIR(def).nodes.map((node) => ({
+    id: node.id,
+    label: node.phaseTitle,
+    ...(node.agentOptions.provider !== undefined ? { provider: node.agentOptions.provider } : {}),
+    ...(node.agentOptions.model !== undefined ? { model: node.agentOptions.model } : {}),
+  }))
+  let runId: string | undefined
+  try {
+    const outcome: RunOutcome = await runPipeline(
+      {
+        engine: ctx.workflowEngine,
+        caps: provider.capabilities,
+        parent,
+        providerName,
+        signal,
+        ...(skillsOf(ctx) !== undefined ? { skills: skillsOf(ctx) } : {}),
+        onRunStart: (run) => {
+          runId = run.id
+          recorder.start(parent.session as RecorderSession, run, def.name, nodePlans)
+        },
+      },
+      def,
+      input,
+    )
+    recorder.finish(runId ?? '', outcome.stopReason, outcome.error)
+    if (outcome.stopReason !== 'completed') {
+      return { ok: false, error: formatFailure(def, outcome).message }
+    }
+    return { ok: true, text: formatSuccess(def, outcome) }
+  } catch (err) {
+    // runPipeline threw after the engine accepted: the card must not hang
+    // running. Before acceptance runId is undefined and nothing was recorded.
+    if (runId !== undefined) recorder.finish(runId, 'error', err instanceof Error ? err.message : String(err))
+    throw err
+  } finally {
+    recorder.dispose()
   }
-  return { ok: true, text: formatSuccess(def, outcome) }
 }

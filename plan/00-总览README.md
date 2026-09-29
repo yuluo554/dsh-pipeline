@@ -2,7 +2,7 @@
 
 > 项目：DeepSeek Harness 多节点工作流编排插件（回应 [dsh#7704](https://github.com/deepseek-ai/deepseek-harness/discussions/7704)）。
 > 方法论：ai-tool-project-sprint（plan 先行 / 每周可演示 / 验收门回写 / 干净环境发布门）。
-> 状态：**M3 已完成**。本文档集即任务编排产物；开发须按 plan/05 里程碑顺序执行，不跳步。
+> 状态：**M4 已完成**。本文档集即任务编排产物；开发须按 plan/05 里程碑顺序执行，不跳步。
 
 ## 里程碑状态表（完成一项回写一项 ✅）
 
@@ -12,7 +12,7 @@
 | M1 | 编译器 + runner + 命令/工具入口 | 3 节点 2 模型流水线真实跑通一次任务 | ✅ 已完成（离线全链路演示 + 实机装载冒烟；在线冒烟待 key，见 plan/m1-demo-log.md 与 06 偏差 #2） | 2026-09-27 |
 | M2 | 护栏与失败策略（取消/重试/降级） | 运行中取消干净退出；坏节点按策略处理 | ✅ 已完成（abort/skip/retry 进编译器 + B4 6/6 + 真实引擎取消两通路 + 错误本地化 en/zh + skills 路由落地；见 plan/m2-demo-log.md 与 06 M2 决策行） | 2026-09-27 |
 | M3 | Web 半编辑器 | 全程零手写 JSON 配置并运行一条流水线 | ✅ 已完成（dsh.client 声明 + esbuild client 构建 preset + store RPC 路由 + settings 编辑器 + 会话头运行页；DoD 双门离线全绿 + 实机装载/路由/保存链路留证；浏览器 GUI 级验证因本机 CDP 环境损坏列入 M4 人工冒烟，见 plan/m3-demo-log.md 与 06 M3 决策行） | 2026-09-28 |
-| M4 | 运行视图 + 成本徽章 | 聊天中看到节点链状态卡与每节点耗时/成本 | ⬜ 未开始 | — |
+| M4 | 运行视图 + 成本徽章 | 聊天中看到节点链状态卡与每节点耗时/成本 | ✅ 已完成（pipeline-run 会话事件族 + 宿主 recorder 写父会话日志 + conversation 定义折叠 + keyed 运行卡；每节点耗时/token 聚合 + 双模型用量对比；99/99 测试 + B1-B4 ALL GREEN + 实机装载/bundle/真会话集成留证；GUI 人工门延续 M3 偏差 #2，见 plan/m4-demo-log.md 与 06 M4 决策行） | 2026-09-29 |
 | M5 | 发布 | npm 包 + GitHub 公开 + awesome PR + #7704 回帖 | ⬜ 未开始 | — |
 
 ## 文档索引
@@ -29,9 +29,11 @@
 | [HANDOFF-M2.md](HANDOFF-M2.md) | 跨会话交接快照（M1 收尾填写，M2 由此续接） |
 | [HANDOFF-M3.md](HANDOFF-M3.md) | 跨会话交接快照（M2 收尾填写，M3 由此续接） |
 | [HANDOFF-M4.md](HANDOFF-M4.md) | 跨会话交接快照（M3 收尾填写，M4 由此续接） |
+| [HANDOFF-M5.md](HANDOFF-M5.md) | 跨会话交接快照（M4 收尾填写，M5 由此续接） |
 | [m1-demo-log.md](m1-demo-log.md) | M1 演示留档：bench 指标 + 离线全链路 trace + 实机装载冒烟 |
 | [m2-demo-log.md](m2-demo-log.md) | M2 演示留档：B1-B4 指标 + 三策略/取消 trace（含真实引擎）+ 实机装载冒烟 |
 | [m3-demo-log.md](m3-demo-log.md) | M3 演示留档：DoD 双门测试 + 启动图/bundle/API 路由实机留证 + client bundle 运行时冒烟 |
+| [m4-demo-log.md](m4-demo-log.md) | M4 演示留档：运行卡事件链测试 + 真实 Session 集成 + 实机装载/bundle 留证 |
 
 ## 验收门（全部通过才算项目完成，逐项打勾）
 

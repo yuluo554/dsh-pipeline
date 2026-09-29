@@ -13,5 +13,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": []
   },
-  "include": ["client", "src/form-model.ts", "src/def-types.ts"]
+  "include": ["client", "src/run-events.ts", "src/form-model.ts", "src/def-types.ts"]
 }
