@@ -1,0 +1,17 @@
+# B1 compares compiled output against frozen snapshots BYTE-EXACT. A Windows
+# clone with core.autocrlf=true used to rewrite text files to CRLF on checkout
+# and fail all of B1 (found by the M5 clean-environment gate). Force LF on
+# checkout everywhere, on every platform.
+* text=auto eol=lf
+
+# Future-proofing: never line-ending-normalize binary formats if they land here.
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.ico -text
+*.zip -text
+*.gz -text
+*.pdf -text
+*.woff -text
+*.woff2 -text
