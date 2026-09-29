@@ -4,14 +4,14 @@
 # dsh.profile.bundles，并把下面的 patch 行叠入配置树（在 dsh-base / web-app 层之后）。
 #
 # 两个操作：
-# 1. 按 id 覆盖：启用 workflow-worker-thread 引擎。web profile 默认层把它
-#    disabled: true（官方面向模型的 workflow 工具一并禁用），而本插件是引擎的
-#    专用消费方，没有引擎无法激活——这里只翻转 disabled 位，config 不动
-#    （provider 等默认值由引擎自己的 schemastery 提供）。官方 tool-workflow
-#    保持禁用：插件与官方工具共存，不改变用户的模型工具面。
+# 1. 按 id 覆盖：启用 workflow-ptc 引擎（0.2.0 起官方 workflow 引擎由
+#    dsh-workflow-worker-thread 换为 dsh-workflow-ptc——共享沙箱 Node PTC 运行时里的
+#    VM realm）。web profile 默认层把它 disabled: true（官方面向模型的 workflow
+#    工具一并禁用），而本插件是引擎的专用消费方，没有引擎无法激活——这里只翻转
+#    disabled 位，config 不动（provider 等默认值由引擎自己的 schemastery 提供）。
+#    官方 tool-workflow 保持禁用：插件与官方工具共存，不改变用户的模型工具面。
 # 2. insert 本插件层：config: {} 即可；插件自身声明 inject 等待依赖就绪。
-- id: workflow-worker-thread
-  name: '@deepseek-ai/dsh-workflow-worker-thread'
+- id: workflow-ptc
   disabled: false
 - insert:
     - id: dsh-pipeline

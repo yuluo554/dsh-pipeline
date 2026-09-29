@@ -1,12 +1,22 @@
 /**
- * Real-engine tests (M2, plan/05 串行③): the compiled script + runner driven
- * through the ACTUAL dsh workflow engine (@deepseek-ai/dsh-workflow-worker-
- * thread 0.1.5-rc.1, the same package the dsh CLI bundles) with a stub
- * subagent provider — no model API involved, still fully offline.
+ * Real-engine tests (M2, plan/05 串行③; adapted 0.2.0-rc.1): the compiled
+ * script + runner driven through the ACTUAL dsh workflow engine
+ * (@deepseek-ai/dsh-workflow-ptc 0.2.0-rc.1 — since 0.2.0 the official
+ * engine, replacing dsh-workflow-worker-thread) with a stub subagent
+ * provider — no model API involved, still fully offline.
+ *
+ * The PTC engine offloads script execution to a sandboxed Node process via
+ * `ctx.ptcRuntime`. The stub runtime here executes the REAL guest in-process:
+ * the program string the engine passes to runtime.run embeds the guest as a
+ * data: URL module (`await import("data:text/javascript,…")` followed by
+ * `runWorkflowGuest(workflowHost)`), so the stub imports that same module and
+ * calls runWorkflowGuest with the engine's own host bindings. Everything
+ * above the process boundary — meta validation, body parse, caps, run
+ * lifecycle, child RPC, cancellation — is the real engine.
  *
  * What this covers beyond the mock engine (B3):
- * - the frozen script format is valid in the real worker realm (vm, worker
- *   thread, ChildStart/Settle RPC);
+ * - the frozen script format is valid in the real guest realm (vm, JSON
+ *   materialization across the realm boundary);
  * - FR-8 cancellation end to end: the engine-level run.cancel() and the
  *   runner's input AbortSignal (which the runner maps to run.cancel) both
  *   reach the real engine, which aborts the shared signal passed to every
@@ -14,15 +24,16 @@
  * - failure policies run on the real vm (child failure -> agent() null ->
  *   skip/retry handling in the compiled loop).
  *
- * Environment note (M2 实测): the engine service is normally constructed by
- * Cordis (zod fills config defaults); constructing it manually requires the
- * FULL config — omitting maxConcurrentAgents wedges the worker's agent
- * semaphore and the run silently never starts a child.
+ * Environment note (M2 实测, still true for PTC): the engine service is
+ * normally constructed by Cordis (zod fills config defaults); constructing
+ * it manually requires the FULL config — the PTC config schema is
+ * {provider, maxConcurrentAgents, maxTotalAgents, maxItemsPerCall,
+ * syncTimeoutMs} (disposeGraceMs was a worker-thread-only key).
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
-import Engine from '@deepseek-ai/dsh-workflow-worker-thread'
+import Engine from '@deepseek-ai/dsh-workflow-ptc'
 import { runPipeline } from '../lib/runner.js'
 import { buildIR } from '../lib/ir.js'
 import { compileScript } from '../lib/compiler.js'
@@ -45,7 +56,9 @@ function makeStubSubagents({ failCalls = [], hangFromCall = Infinity } = {}) {
     async start(_provider, req) {
       call += 1
       const nth = call
-      const run = { disposeCount: 0 }
+      // 0.2.0 PTC guest carries run.id into workflow/agent-start payloads
+      // (childId); a real subagent run always has its session id.
+      const run = { disposeCount: 0, id: `stub-child-${nth}` }
       if (nth >= hangFromCall) {
         // Model a long-running child: settles only when aborted.
         run.result = new Promise((resolve) => {
@@ -72,10 +85,47 @@ function makeStubSubagents({ failCalls = [], hangFromCall = Infinity } = {}) {
   }
 }
 
-/** Real WorkerThreadWorkflowEngine on a bare Cordis context with the stub service. */
+/**
+ * Stub PTC runtime: runs the engine's REAL guest module in-process instead of
+ * a sandboxed child. The guest is embedded in the program as a data: URL
+ * import; extract it, import it, and drive it with the engine's own host
+ * bindings. Cancellation mirrors the process-kill semantics: an aborted run
+ * signal rejects the program promise (the engine's drive() then settles the
+ * run from its own cancelReason).
+ */
+function makeStubPtcRuntime() {
+  return {
+    language: 'typescript',
+    resolve: (spec) => spec,
+    async run(spec) {
+      const match = /await import\((".*")\)/.exec(spec.program)
+      assert.ok(match, 'engine program must embed the guest as a string import')
+      const guest = await import(JSON.parse(match[1]))
+      const host = spec.bindings.find((b) => b.global === 'workflowHost').functions
+      const program = guest.runWorkflowGuest(host)
+      // The losing guest promise must never become an unhandled rejection.
+      program.catch(() => {})
+      return Promise.race([
+        program.then((value) => ({ value })),
+        new Promise((_resolve, reject) => {
+          spec.signal?.addEventListener('abort', () => reject(spec.signal.reason), { once: true })
+        }),
+      ])
+    },
+  }
+}
+
+function makeStubSandboxPolicy() {
+  const policy = { workspaceRoot: process.cwd() }
+  return { resolve: () => policy }
+}
+
+/** Real PtcWorkflowEngine on a bare Cordis context with stub services. */
 function makeEngine(stub) {
   const ctx = new Context()
   ctx.subagents = stub
+  ctx.ptcRuntime = makeStubPtcRuntime()
+  ctx.sandboxPolicy = makeStubSandboxPolicy()
   ctx.logger = { warn: () => {} }
   // Full config: zod defaults only apply through the Cordis plugin flow.
   return new Engine(ctx, {
@@ -84,7 +134,6 @@ function makeEngine(stub) {
     maxTotalAgents: 1000,
     maxItemsPerCall: 4096,
     syncTimeoutMs: 5000,
-    disposeGraceMs: 5000,
   })
 }
 

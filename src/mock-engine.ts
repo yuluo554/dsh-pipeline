@@ -1,12 +1,13 @@
 /**
  * Offline mock WorkflowEngine (plan/04 B3) — a test/bench-only twin of the
- * real dsh-workflow-worker-thread engine (0.1.5-rc.1), mirroring the
+ * real dsh workflow engine (dsh-workflow-ptc 0.2.0-rc.1 — since 0.2.0 the
+ * official engine, replacing dsh-workflow-worker-thread), mirroring the
  * semantics verified against its source:
  *
  * - script realm globals: agent(prompt, opts?), phase(title), log(message),
  *   args (the engine wraps the body as `(async () => { <body> })()`);
- * - agent() resolves to the child's final text, and to `null` when the child
- *   run fails (script-visible failure, worker.cjs `agent()`);
+ * - agent() resolves to the child's final text (schema -> structured, same
+ *   as the real guest), and to `null` when the child run fails;
  * - cancellation kills the script at its NEXT hook boundary (CANCELLED
  *   thrown from agent/phase/log), and every future hook call keeps throwing;
  * - the run's result never rejects: script failure -> stopReason 'error',
