@@ -45,7 +45,7 @@
       ]
     },
     "compatibility": {
-      "dsh": ">=0.1.0-rc.5"
+      "dsh": ">=0.2.0-rc.1"
     }
   },
   "scripts": {
