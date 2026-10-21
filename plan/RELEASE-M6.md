@@ -183,11 +183,28 @@ TypeError: Promise.withResolvers is not a function
 
 ## 4. 需要人做的事（本批不做，移交）
 
-1. **npm 发布**（DEC3=A 的闭环）：用户登录后 `npm publish --access public`。
-   注意本仓 `.npmrc` 的 registry 是 npmmirror 镜像——**发布必须走真 registry**（`--registry=https://registry.npmjs.org`），
-   镜像不接收发布。
+1. **npm 发布**（DEC3=A 的闭环）—— **已实测确认是硬阻塞，不是"未登录"这么简单**：
+
+   | 探针 | 结果 |
+   |---|---|
+   | `npm whoami --registry=https://registry.npmjs.org` | **E401** |
+   | `npm profile get --registry=https://registry.npmjs.org` | `Unable to authenticate, your authentication token seems to be invalid` |
+   | `curl -H "Authorization: Bearer <token>" https://registry.npmjs.org/-/whoami` | **http=401**，body `{}` |
+   | `npm publish --access public --registry=…` | **E404**（PUT `@yuluo554%2fdsh-pipeline` — 未认证下的权限错误） |
+   | `npm publish --dry-run` | **通过**：74 文件、public access、`+ @yuluo554/dsh-pipeline@0.2.1` |
+   | `GET https://registry.npmjs.org/@yuluo554%2Fdsh-pipeline` | **404** → scope 下无同名包，**名字可用** |
+
+   根因：`~/.npmrc` 里的 `//registry.npmjs.org/:_authToken` 是 **40 字符、`npm_` 前缀的 classic token**，
+   npm 已废弃该类型。需换 **granular access token**（权限：Read and write；勾选该 scope 的 publish）。
+   换好后：
+   ```sh
+   npm publish --access public --registry=https://registry.npmjs.org   # 必须显式指真 registry
+   npm view @yuluo554/dsh-pipeline version --registry=https://registry.npmjs.org
+   ```
+   **本仓 `.npmrc` 是 npmmirror 镜像，镜像不接收发布**；scope 包首次发布必须 `--access public`（否则发成私有）。
 2. **真实 dsh 安装目检**（唯一权威验收）：把 `@yuluo554/dsh-pipeline` 装进跑 dsh 0.2.1-rc.2 的环境，
-   确认插件 enabled 且 web 面板可见流水线入口。**会改用户 profile，必须用户本人执行或明确授权。**
+   确认插件 enabled 且 web 面板可见流水线入口。**会改用户 profile** —— 用户已于 2026-10-22 **明确决定跳过**；
+   替代证据见 §6.3（宿主判定函数判包内 manifest + `.tgz` 装后 import 冒烟）。
 3. **contacts**（若改走 DEC3=C）：`dsh-pipeline` 现任 maintainer 邮箱见 registry 公开字段（本文件不复述，避免触发脱敏门）。
 
 ## 5. tag 时点事实（打 tag 前写定，2026-10-21）
