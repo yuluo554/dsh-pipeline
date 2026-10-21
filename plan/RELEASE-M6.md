@@ -233,6 +233,55 @@ event = push，conclusion = **success**，两腿 **`ci (22)` success / `ci (24)`
 > 注意：`.tgz` 是在**构建后**的工作树里打的（`lib/` 是 gitignored 构建产物，裸 clone 无 `lib/`，打出来会缺件）。
 > 复现：`pnpm install --frozen-lockfile && pnpm build && npm pack`。
 
-## 6. tag 后追加事实（打 tag 后才写）
+## 6. tag 后追加事实（打完 tag 才写，2026-10-21）
 
-> 本节在 tag 创建后回填；内容仅限 tag 时点之后发生的事。
+### 6.1 tag 落点
+
+- `git rev-list -n1 v0.2.1` == `7ee20435ede5eee32096ae97186c840a13d3d180`，即 §5.1 里 CI 绿之后的**文档提交**；
+  该提交自身的 CI run = **`39628977708`**（`ci (22)` / `ci (24)` 均 success，annotation 2 条 = Ubuntu 26 通知）。
+- 代码/配置最后改动 = `1fd5791be21eda5b967b587663797b24ac6996ca`（run `39628634985` 绿）；
+  其后提交只改 `plan/` 文档，不改任何门禁对象。
+
+### 6.2 Release
+
+- `gh release create v0.2.1`（非 draft、非 prerelease），最新 Release。
+- 附件（`gh release view` 回读）：
+
+| 附件 | size | GitHub digest |
+|---|---|---|
+| `yuluo554-dsh-pipeline-0.2.1.tgz` | 73,912 | `sha256:4a01247d1a6d7c7c58987f37ecbdddd9f400d0611b57e46640102f703993bde3` |
+| `SHA256SUMS` | 98 | `sha256:71d433395c625ae24c1330294c5fdc50d0c2735f9e151d67a38624ece267d8bc` |
+
+### 6.3 附件真下载复验 + 发布物自证
+
+```sh
+gh release download v0.2.1 --repo yuluo554/dsh-pipeline   # 到临时目录
+sha256sum -c SHA256SUMS                                    # → yuluo554-…tgz: OK
+sha256sum yuluo554-dsh-pipeline-0.2.1.tgz                  # → 4a01247d…（与 GitHub digest 一致）
+```
+
+**三方同值**：本地 `npm pack` 的值 = Release 说明里写的值 = GitHub digest = 真下载复算值。
+
+发布物（`.tgz`）自证：
+
+| 检查 | 结果 |
+|---|---|
+| 条目数 | **74**（`tar -tzf \| wc -l`），与 `npm pack` 一致 |
+| 关键件 | `package/lib/index.js`、`package/lib/client.js`、`package/cordis.patch.yml`、`package/locale/{en,zh}.json`、`package/data/README.md` 齐全 |
+| 泄漏 | `package/(plan\|test\|src)/` 命中 **0** |
+| 包内 manifest | `name=@yuluo554/dsh-pipeline`、`version=0.2.1`、`engines={node:>=22, dsh:>=0.2.0-rc.1 <0.3.0-0}` |
+| 包内 patch 说明符 | `name: '@yuluo554/dsh-pipeline'`（与包名一致） |
+| 包内 client bundle | `window.__ModuleLoader__.load({ id: "@yuluo554/dsh-pipeline" …`（与包名一致） |
+| 宿主机判定包内 manifest | `0.2.0-rc.1 / 0.2.1-rc.2 / 0.2.1 / 0.2.9` → **ACCEPTED**；`0.3.0-beta.1` → REFUSED（unmet 1） |
+| 安装即用 | `pnpm add <tgz>` 进临时 profile → `import '@yuluo554/dsh-pipeline'` 成功（`name/inject/apply` 正确，`lib/` 预编译产物到位） |
+
+> **口径说明（不夸大）**：上面「安装即用」是**脱离 dsh 宿主**的 Node 加载冒烟（在临时 profile 里装、import、
+> 看导出契约），**不是** `dsh plugin add` 把插件挂进真实 profile 的端到端验收——那会改用户环境，
+> 属未闭人工门（§4）。「宿主机判定包内 manifest」用的是 dsh 公开导出的判定函数，判的是本体（包内 package.json），
+> 这一步可以算权威；「插件在真实 profile 里 enabled 且 web 面板有入口」仍待用户执行。
+
+### 6.4 未闭事项（移交用户）
+
+1. `npm publish --access public`（scope 包首发布；本仓 `.npmrc` 是 npmmirror 镜像，**发布须显式 `--registry=https://registry.npmjs.org`**）。
+2. 真实 dsh 安装目检（唯一权威验收，会改 profile）。
+3. `v0.2.0` 不存在（本仓 v0.2.1 是首个 tag），无旧 tag 需避让。

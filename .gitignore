@@ -16,6 +16,10 @@ lib/
 data/**/_private/
 *.log
 
+# npm pack 产物（M6：打 Release 附件时会在仓库根留下 .tgz，绝不入仓——
+# 它由 pnpm build + npm pack 从源码重建，附件本身走 GitHub Release）
+*.tgz
+
 # OS
 .DS_Store
 Thumbs.db
