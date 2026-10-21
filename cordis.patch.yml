@@ -11,9 +11,12 @@
 #    disabled 位，config 不动（provider 等默认值由引擎自己的 schemastery 提供）。
 #    官方 tool-workflow 保持禁用：插件与官方工具共存，不改变用户的模型工具面。
 # 2. insert 本插件层：config: {} 即可；插件自身声明 inject 等待依赖就绪。
+#    `id` 是本插件在配置树里的行 id（Cordis 插件名，保持 dsh-pipeline 不变，
+#    它是 API 路由 /api/dsh-pipeline/* 与 i18n 命名空间的来源）；`name` 是
+#    Loader 用 import() 解析的模块说明符，必须是 npm 包名——M6 起改为 scope 包。
 - id: workflow-ptc
   disabled: false
 - insert:
     - id: dsh-pipeline
-      name: 'dsh-pipeline'
+      name: '@yuluo554/dsh-pipeline'
       config: {}

@@ -1,4 +1,4 @@
-// dsh-pipeline 0.2.0 — compiled pipeline "retry-skip".
+// dsh-pipeline 0.2.1 — compiled pipeline "retry-skip".
 // 4 nodes, 7 agent calls max; policies: fetch=skip:2, enrich=skip, report=abort, verify=abort:1.
 const out = {};
 phase("Fetch");

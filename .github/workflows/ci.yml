@@ -8,12 +8,21 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # engines.node declares ">=22". The 20 leg caught a real defect and is
+        # gone because of it: the official @deepseek-ai/dsh-* dependencies call
+        # Promise.withResolvers (V8 12.4 / Node 22+), so the PTC engine throws
+        # on Node 20 — the old ">=20" floor was never true. 22 = declared floor,
+        # 24 = the line M6 was developed and verified on.
+        node: [22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint

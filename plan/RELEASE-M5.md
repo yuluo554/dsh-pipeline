@@ -77,7 +77,9 @@
 
 ## 3. npm 发包（预检完成；**发布动作阻塞在 npm 登录**）
 
-- `npm pack --dry-run`：**74 文件 / 72.8 kB**；内容 = `lib/`（预编译 host + client bundle）+
+- `npm pack --dry-run`：**74 文件**（不记 kB：压缩后大小随 npm 版本/压缩器漂移，
+  同一份内容实测 72.8 kB 与 73.0 kB 都出现过；文件数才是稳定判据。要复核大小用
+  `npm view <包名> dist.unpackedSize` 回读）；内容 = `lib/`（预编译 host + client bundle）+
   `cordis.patch.yml` + `locale/` + `data/`（fixtures/快照/README）+ README/LICENSE/package.json；
   **无 plan/、test/、src/ 泄漏**。
 - `npm whoami` → ENEEDAUTH：**本机未登录 npm**，发布动作需用户执行（或提供已登录环境）：
@@ -87,6 +89,16 @@
   ```
 - 发包后复核：`npm view dsh-pipeline` + 全新目录 `dsh plugin --profile web add dsh-pipeline`
   （plugin-manager 按 registry 查询安装，官方文档 pkg-plugin-manager 口径；npmmirror 为内置 fallback）。
+
+> **M6 更正（2026-10-21，不改上文）**：上文「发布动作阻塞在 npm 登录」的定性**不完整**。
+> `npm whoami` 的 ENEEDAUTH 只是表层——即使登录成功，`npm publish` 也必然失败，因为
+> **`dsh-pipeline`（无 scope）自 2026-08-23 起已被 `tudamu` 占用**（latest `0.0.1`，描述写
+> "Name reserved"），而非 scope 包不能覆盖他人已发布的同名包。**真正的阻塞是所有权，不是登录。**
+> 处置（M6 DEC3=A）：本仓 npm 包名改为 scope 包 **`@yuluo554/dsh-pipeline`**，`package.json`
+> 的 `name`、`cordis.patch.yml` 的 insert `name`、client bundle 注册 id 三处同步；
+> 上文的 `npm login && npm publish` 命令与「非 scope 包默认 public」那一句对**本包已失效**，
+> scope 包首次发布须 `npm publish --access public`。安装命令改为
+> `dsh plugin --profile web add @yuluo554/dsh-pipeline`（漏掉 scope 会装到别人的 0.0.1）。
 
 ## 4. GitHub 发布与推广（首推已完成 2026-09-29）
 

@@ -36,7 +36,12 @@ function loadClientBundle() {
     delete globalThis.window
   }
   assert.ok(registered, 'bundle never called window.__ModuleLoader__.load')
-  assert.equal(registered.id, 'dsh-pipeline')
+  // The registration id must equal the npm package name: the host keys client
+  // graph rows by the Loader specifier and reports "loaded without registering
+  // <id>" when a bundle registers under anything else. Read the manifest so a
+  // future rename fails here instead of only in a browser.
+  const pkgName = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).name
+  assert.equal(registered.id, pkgName, 'bundle registration id must equal package.json name')
   assert.equal(typeof registered.factory, 'function')
   return registered
 }
@@ -57,6 +62,9 @@ function seedRequire() {
 test('built client bundle registers a factory whose apply wires all three seats', () => {
   const bundle = loadClientBundle()
   const exports = bundle.factory(seedRequire())
+  // `name` is the Cordis plugin name (stable internal identifier, also the
+  // source of the /api/dsh-pipeline/* routes and the i18n namespace) — it is
+  // deliberately NOT the npm package name and must not follow a rename.
   assert.equal(exports.name, 'dsh-pipeline')
   assert.deepEqual(exports.inject, ['slots', 'locale', 'uiConversation'])
   assert.equal(typeof exports.apply, 'function')

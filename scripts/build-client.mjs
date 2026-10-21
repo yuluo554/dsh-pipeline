@@ -25,7 +25,11 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'lib', 'client.js')
-const PACKAGE_ID = 'dsh-pipeline'
+// The bundle's registration id must equal the npm package name: the host's
+// client-modules system keys graph rows by the Loader specifier and rejects a
+// bundle that registers under any other id ("loaded without registering ...").
+// Read it from the manifest instead of restating it, so a rename cannot drift.
+const PACKAGE_ID = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')).name
 
 /**
  * Module specifiers the bundle may `require` at runtime: exactly the frozen

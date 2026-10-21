@@ -1,4 +1,4 @@
-// dsh-pipeline 0.2.0 — compiled pipeline "multi-prompt-node".
+// dsh-pipeline 0.2.1 — compiled pipeline "multi-prompt-node".
 // 1 node, 3 agent calls max; policies: planner=abort.
 const out = {};
 phase("Planner");

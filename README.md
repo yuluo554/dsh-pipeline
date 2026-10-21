@@ -9,7 +9,7 @@ DeepSeek Harness（dsh）多节点工作流编排插件 —— 回应官方讨�
 取消能干净退出；Web 端提供零手写 JSON 的表单编辑器与运行入口，
 会话流内实时渲染节点链运行卡（逐节点状态、耗时、token 用量、双模型成本对比）。
 
-> 社区第三方插件，非官方出品。要求 dsh **≥ 0.2.0-rc.1**（npm `next` 标签）。
+> 社区第三方插件，非官方出品。要求 dsh **≥ 0.2.0-rc.1 且 < 0.3.0-0**（npm `next` 标签）。
 
 ## 特性
 
@@ -75,19 +75,25 @@ flowchart LR
 
 ### 前置要求
 
-- Node ≥ 20
-- dsh ≥ **0.2.0-rc.1**（0.2.0-rc.1 在 npm `next` 标签：`npm i -g @deepseek-ai/dsh@next`；
-  `latest` 仍指 0.1.x，无法运行本插件）
+- Node ≥ 22（官方 `@deepseek-ai/dsh-*` 依赖使用 `Promise.withResolvers`，Node 20 上 PTC 引擎会抛错）
+- dsh ≥ **0.2.0-rc.1**，且 **< 0.3.0-0**（0.2.0-rc.1 在 npm `next` 标签：`npm i -g @deepseek-ai/dsh@next`；
+  `latest` 仍指 0.1.x，无法运行本插件）。上限是刻意的：preview 期的 seam 只保证 0.2.x 线兼容，
+  0.3 的预发布版本一律判为不兼容，需本插件另行适配后再放开
 - 已配置可用的模型 provider（子 agent 走 dsh 自身模型配置；本插件不内置任何 key）
 
 ### 安装
 
 ```sh
-dsh plugin --profile web add dsh-pipeline
+dsh plugin --profile web add @yuluo554/dsh-pipeline
 ```
 
 包内含预构建产物，安装即用，无需本地构建。安装时插件的 bundle patch 会自动启用
 web profile 默认禁用的 `workflow-ptc` 引擎（本插件是它的专用消费方）。
+
+> **包名说明**：npm 上的 `dsh-pipeline`（无 scope）是**别人的另一个包**（`tudamu`，0.0.1，
+> 描述写 "Name reserved"），与本项目无关。本项目的 npm 包名是 **`@yuluo554/dsh-pipeline`**；
+> 上一行命令若漏掉 scope 就会装到那个不相干的包上，插件不会激活。
+> 也可以直接从 GitHub 装：`dsh plugin --profile web add github:yuluo554/dsh-pipeline`。
 
 ### 定义第一条流水线
 
@@ -140,7 +146,7 @@ web profile 默认禁用的 `workflow-ptc` 引擎（本插件是它的专用消�
 ### 本地开发回路（从源码）
 
 ```sh
-git clone <本仓库>
+git clone git@github.com:yuluo554/dsh-pipeline.git
 cd dsh-pipeline
 pnpm install && pnpm build
 # 在本仓库的父目录执行（相对路径 link 安装）：
@@ -148,7 +154,11 @@ dsh plugin --profile web add ./dsh-pipeline
 dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow-ptc enabled
 ```
 
-卸载：`dsh plugin --profile web remove dsh-pipeline`（层消失、注册随 effect 注销）。
+卸载：`dsh plugin --profile web remove ./dsh-pipeline`（层消失、注册随 effect 注销）。
+从 npm 安装的则用 `remove @yuluo554/dsh-pipeline`。
+
+> 两处都按**安装来源**卸：Cordis 层里那一行的 `id` 始终是 `dsh-pipeline`，但 `dsh plugin remove`
+> 认的是 profile `package.json` 里记录的那个依赖名（`./dsh-pipeline` 或 `@yuluo554/dsh-pipeline`）。
 
 ## 内置基准评测
 
@@ -161,9 +171,9 @@ dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow
 | B3 mock 引擎 e2e | mock WorkflowEngine × 4 场景 | agent() 调用参数序列 + 事件序完全匹配；取消后无残留调用 | **4/4，完全匹配** |
 | B4 策略矩阵 | 注入失败节点 × abort/skip/retry × 6 场景 | 各策略结果/事件序符合语义（skip 置 null 继续；retry 节点级重跑、耗尽按策略收场；取消打断重试不失控） | **6/6，完全匹配** |
 
-测试套件（`pnpm test`）共 101 例，全部离线：B1-B4 断言 + 真实 PTC 引擎（取消/策略）+
+测试套件（`pnpm test`）共 107 例，全部离线：B1-B4 断言 + 真实 PTC 引擎（取消/策略）+
 真实 Session 集成（运行卡事件族落盘/重建/卸载兼容）+ form-model/web/client-bundle +
-脱敏守门（工作区 + 全历史）。
+兼容声明（宿主判定逻辑副本，覆盖 0.2.x 与 0.3+ 两侧）+ 自述计数守门 + 脱敏守门（工作区 + 全历史）。
 快照真值冻结口径见 [`data/README.md`](./data/README.md)。
 
 ## 限制
@@ -179,7 +189,9 @@ dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow
   误报长节点——诚实停留优于虚报 interrupted）
 - **成本徽章按声明路由分组**：取自定义里声明的 `provider|model`；走默认路由的节点
   实际模型可能与徽章分组不同（徽章文案按"声明路由"表述）
-- 只支持 `dsh.compatibility.dsh` 锁定的 preview 线（≥ 0.2.0-rc.1）；preview 期 API 可能变动
+- 只支持 `dsh.compatibility.dsh` 锁定的 preview 线（≥ 0.2.0-rc.1，< 0.3.0-0）；preview 期 API 可能变动。
+  **生效的字段是 `package.json` 的 `engines.dsh`**——dsh 宿主只校验 `engines.dsh` 与 `peerDependencies`，
+  `dsh.compatibility` 纯属文档元数据、不参与任何校验（保留它只为向读者说明本插件面向哪条线）
 
 ## 免责声明
 
@@ -206,7 +218,7 @@ dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow
 ```sh
 pnpm install
 pnpm build        # tsc -> lib/ + esbuild client bundle
-pnpm test         # node:test，99 例，全离线
+pnpm test         # node:test，107 例，全离线（计数由 test/self-report.test.js 守门）
 pnpm bench        # B1-B4 指标表（ALL GREEN 门槛）
 pnpm lint           # host + client 双 tsconfig
 pnpm release:audit  # 脱敏审查：文件名门 + 内容级扫描 + 全历史扫描（发布门，随测试运行）

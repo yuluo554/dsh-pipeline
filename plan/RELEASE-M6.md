@@ -1,0 +1,197 @@
+# RELEASE-M6 —— 二次迭代发布留档（v0.2.0 → v0.2.1，2026-10-21）
+
+> 纪律：只写实测过的；命令与结论逐条留痕；敏感字面值一律占位符（本文件自身在审查脚本扫描范围内，引述即 FAIL）。
+> 形态沿用 `RELEASE-M5.md`：**第一节 = tag 时点事实**（打 tag 前写定），**第二节 = tag 后追加事实**（打完 tag 才可写）。
+> 缺陷编号与 `update/00-诊断报告.md` 一致；决策依据与 `plan/06` 的 2026-10-21 五行一致。
+
+## 0. 本次迭代改了什么（提交清单以 §2 实测为准）
+
+| 批次 | 缺陷 | 改动 | 文件 |
+|---|---|---|---|
+| 1 | **D1（P0）** | 兼容声明改为 `engines.dsh` 单点决定：`">=0.2.0-rc.1 <0.3.0-0"` | `package.json` |
+| 1 | D2（P1） | `dsh.compatibility` 保留为文档元数据并标注不参与校验，值同步为上界范围 | `package.json`、`README.md` |
+| 1 | — | 新增兼容守门（复制宿主判定逻辑，10 个版本正反控） | `test/compat.test.js`（新） |
+| 2 | **D3（P1）** | npm 包名改 scope 包 `@yuluo554/dsh-pipeline`；Loader 模块说明符同步；client bundle 注册 id 改为从 manifest 读取 | `package.json`、`cordis.patch.yml`、`scripts/build-client.mjs`、`test/client-bundle.test.js`、`README.md` |
+| 3 | D8（P2） | README 测试计数 101/99 两处 → **107**，并新增自述计数守门 | `README.md`、`test/self-report.test.js`（新） |
+| 3 | D5（P2） | M5 留档的 `74 文件 / 72.8 kB` → `74 文件`（不记 kB） | `plan/RELEASE-M5.md` |
+| 3 | **D4（P2 → 实为声明错误）** | CI 先加 node 20 腿 → 该腿揪出真缺陷（官方依赖用 Node 22+ API）→ `engines.node` 由 `>=20` 改 **`>=22`**，CI 矩阵改 `[22, 24]` | `package.json`、`.github/workflows/ci.yml`、`README.md` |
+| 3 | — | 版本 0.2.0 → **0.2.1** + 重冻结 7 份编译快照（唯一差异 = 首行版本号） | `package.json`、`src/version.ts`、`data/snapshots/*.js` |
+| — | DEC2=B | 决策记录五行落档 | `plan/06-交付对标与决策记录.md` |
+
+**未做（诊断报告提及但不在本批验收门内）**：没有改 workflow 引擎 / compiler / IR / runner 的判定逻辑；
+没有删任何现有测试；没有降 `bench.js` 的四门槛；没有动 `scripts/release-audit.mjs` 的三步扫描。
+
+## 1. 兼容性验收（本批核心，G1）
+
+### 1.1 与交接物的一处更正（`includePrerelease`）
+
+交接物（`update/00`、`update/01`、`update/02`）写 dsh 调 `semver.satisfies(rt, range)` **不传** `includePrerelease`。
+**这是错的**。宿主源码（dsh 0.2.1-rc.2，`dsh-app-boot/lib/index.js:276-277`）：
+
+```js
+function satisfies(runtimeVersion, range) {
+  return range.trim() !== "" && semver.satisfies(runtimeVersion, range, { includePrerelease: true });
+}
+```
+
+预发布**参与所有 range**。所以 `>=0.2.0-rc.1` 本身就能匹配 `0.2.1-rc.2`（实测 true，见 §1.2 第 2 行）。
+让 M5 声明在 0.2.1-rc.2 上失效的**真正原因**是那 13 个 peer 钉的**精确字符串** `"0.2.0-rc.1"`
+（精确值只能匹配它自己，任何其它版本都不满足）——不是预发布排除。
+
+**结论不变、论证路径改**：M5 manifest 在 0.2.1-rc.2 上仍被拒（12 条 unmet，见 §1.3 负控），
+修复动作（`engines.dsh`）仍有效。（更正详情另存于本机诊断交接目录 `update/03-更正-兼容性判定.md`；
+该目录含本机绝对路径，**不随仓库发布**，故本节的更正内容自足，不依赖它。）
+
+### 1.2 range 选型（为什么是 `>=0.2.0-rc.1 <0.3.0-0`）
+
+因为 `includePrerelease: true`，**宽 range 会连带放行未来大版本**。用仓内 `semver@7.8.5` 实测
+（`satisfies(v, r, { includePrerelease: true })`）：
+
+| range \ version | 0.2.0-rc.1 | 0.2.0 | 0.2.1-rc.2 | 0.2.1 | 0.2.9 | 0.3.0-0 | 0.3.0-beta.1 | 0.4.0-alpha | 1.0.0 |
+|---|---|---|---|---|---|---|---|---|---|
+| `>=0.2.0-rc.1`（M5 的 `dsh.compatibility`） | true | true | **true** | true | true | true | true | true | **true** |
+| `>=0.2.0-rc.1 \|\| >=0.2.1-rc.1`（提示词建议） | true | true | true | true | true | true | true | true | **true** |
+| `^0.2.0-rc.1` | true | true | true | true | true | false | false | false | false |
+| **`>=0.2.0-rc.1 <0.3.0-0`（本批采用）** | true | true | **true** | true | true | **false** | **false** | **false** | **false** |
+
+提示词给的 range 与 README「只支持 `dsh.compatibility.dsh` 锁定的 preview 线」自相矛盾——
+它会接受 `dsh 1.0.0`。上界 `<0.3.0-0` 是唯一同时满足「0.2.x 全包（含预发布）」与「0.3+ 全拒」的写法。
+用户已就此单独拍板（DEC1 衍生项）。
+
+### 1.3 用**真实 dsh 宿主函数**判定（G1 的权威验收）
+
+**唯一权威验收**是「插件装进真机 dsh 0.2.1-rc.2 后为 enabled」——那会改用户 profile，本批**不执行**
+（如实登记）。可达的最强替代 = 直接调用宿主导出的判定函数（不是测试副本）：
+
+```sh
+node --input-type=module -e "
+import { evaluatePluginCompatibility } from 'file:///<dsh 全局安装>/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-app-boot/lib/index.js'
+import { readFileSync } from 'node:fs'
+const m = JSON.parse(readFileSync('<repo>/package.json','utf8'))
+console.log('issue =', evaluatePluginCompatibility(m, {}, '0.2.1-rc.2'))
+"
+```
+
+| manifest | runtime | 结果 | 退出码 |
+|---|---|---|---|
+| **本批修后** | `0.2.1-rc.2` | **`issue = undefined`**（全部满足，不会被拒载） | 0 |
+| M5 原样（`git show HEAD:package.json`，`engines` 只有 `node`） | `0.2.1-rc.2` | `REFUSED, unmet=12` | 0 |
+| M5 原样 | `0.2.0-rc.1` | `undefined`（这解释了为什么 M5 本地全绿） | 0 |
+
+**D1 的「插件会被拒绝加载」由此从推演升级为宿主函数实测**（判的是本体，不是副本）。
+
+### 1.4 仓内兼容守门
+
+`test/compat.test.js`（新，5 条）把宿主的 `satisfies` + `unmetRequirements` 逐行复制进测试
+（`dsh-app-boot/lib/index.js:276-298`，注释注明出处与「复制而非 import」的理由：宿主私有路径无稳定导出），
+断言：
+
+- 6 个受支持运行时（`0.2.0-rc.1`/`0.2.0-rc.2`/`0.2.0`/`0.2.1-rc.2`/`0.2.1`/`0.2.9`）unmet 集合**全空**；
+- 4 个越线运行时（`0.3.0-0`/`0.3.0-beta.1`/`0.4.0-alpha`/`1.0.0`）**全被拒**；
+- `engines.dsh` 存在时**遮蔽** 13 个精确 peer（防「下次有人改 peer 而不是改 engines」）；
+- `dsh.compatibility` 与生效 range **一致**（防两处声明漂移）。
+
+## 2. 全套门禁实测（tag 时点，2026-10-21）
+
+### 2.1 仓库工作树（Node v24.15.0、pnpm 10.34.5）
+
+| 门 | 命令 | 结果 | 退出码 |
+|---|---|---|---|
+| 测试 | `node --test` | **107 tests / 107 pass / 0 fail / 0 skipped** | **0** |
+| lint | `pnpm lint` | 两套 tsconfig 无输出（干净） | **0** |
+| bench | `node scripts/bench.js` | B1 **7/7 byte-exact**、B2 **22/22**、B3 **4/4**、B4 **6/6**、`ALL GREEN` | **0** |
+| 脱敏审计 | `node scripts/release-audit.mjs` | step1 108 文件 0 命中 / step2 108 文本 0 命中 / step4 13 提交 0 命中 → `DESSENSITIZE_AUDIT_OK` | **0** |
+| npm pack | `npm pack --dry-run` | **74 文件**（无 `plan/`、`test/`、`src/` 泄漏） | 0 |
+
+**测试计数 101 → 107 的构成**：+5（`compat.test.js`）+1（`self-report.test.js`）。
+注意 `107` 比「已有 101 + 5 + 1 = 107」对得上，其中 `test/helpers.js` 仍是那条**零声明的文件级记录**（占 1）。
+新的自述计数守门把 README 的两处声明与这条收集规则锁在一起（见 §2.3）。
+
+### 2.2 干净环境验证（发布门核心）
+
+环境：`<TEMP>\dsh-clean-m6\repo`（独立 clone + 覆盖本批未提交改动，**仓库外**）+ 隔离 pnpm store
+`--store-dir <TEMP>\store`（不依赖开发机 store）。`<TEMP>` = 系统临时目录（本机绝对路径不入仓，脱敏门拦）。
+
+| 步骤 | 结果 |
+|---|---|
+| `pnpm install --frozen-lockfile`（隔离 store，npmmirror） | ✅ 一次过（lockfile 只多 `semver: 7.8.5` 三行，见 §2.4） |
+| `pnpm lint` | ✅ 退出 0 |
+| `pnpm test`（= build + `node --test`，会重建 `lib/`） | ✅ **107/107**，退出 0 |
+| `node scripts/bench.js` | ✅ ALL GREEN，退出 0 |
+| `node scripts/release-audit.mjs` | ✅ `DESSENSITIZE_AUDIT_OK`，退出 0 |
+| `npm pack --dry-run` | ✅ 74 文件 |
+
+### 2.3 负控清单（逐条贴退出码，`cmd >file 2>&1; echo $?`）
+
+| # | 负控 | 期望 | 实测 | rc |
+|---|---|---|---|---|
+| NC1 | 修后 `engines.dsh` 对 6 个受支持版本 true、4 个越线版本 false | 全对 | 0.2.0-rc.1/0.2.0/0.2.1-rc.2/0.2.1/0.2.9 = true；0.3.0-0/0.3.0-beta.1/0.4.0-alpha/1.0.0 = false | 0 |
+| NC2 | 摘掉 `engines.dsh`（复现 M5 路径）→ 0.2.1-rc.2 必须 12 条 unmet | 12 | `NO engines.dsh, 0.2.1-rc.2 unmet = 12`；`WITH engines.dsh = 0`（探针有效） | 0 |
+| NC3 | 宿主校验函数附近（`:271-320`）grep `compatibility` | 0 | **0 命中**（`dsh.compatibility` 确实不被读） | 0 |
+| NC4 | registry 的 `dsh-pipeline` owner 仍为 tudamu/0.0.1 | 是 | `latest: 0.0.1`、`maintainers: tudamu`（直连 `registry.npmjs.org`；经代理 127.0.0.1:7897 反而连不上） | 0 |
+| NC5 | README `99 例` = 0、`107 例` ≥ 1、裸装命令 `add dsh-pipeline` = 0、`add @yuluo554/dsh-pipeline` = 1 | 全对 | 0 / 2 / 0 / 1 | 0 |
+| NC6 | 恒定回归：测试 107/107、bench ALL GREEN | 是 | `tests 107 / pass 107 / fail 0`、`ALL GREEN` | 0 / 0 |
+| NC7 | 脱敏审计仍绿（改了 README/package.json 必须重跑） | 绿 | `DESSENSITIZE_AUDIT_OK` | 0 |
+| NC8 | 打包边界仍干净 | 74 文件 | `total files: 74`（`package size 73.9 kB`） | 0 |
+
+### 2.4 依赖变更的边界（如实）
+
+新增一条 **devDependency `semver@7.8.5`**（供 `test/compat.test.js` 判定 range 用）。
+它**已在 lockfile 里**（是既有传递依赖，`pnpm-lock.yaml` 早已有 `semver@7.8.5` 条目），
+所以改动只是 importers 段多 3 行、**没有拉入任何新包**：
+
+```
++      semver:
++        specifier: 7.8.5
++        version: 7.8.5
+```
+
+`pnpm add -D semver@7.8.5` 首次执行时顺带把 `@deepseek-ai/cordis-plugin-loader` 从 1.0.3 升到 1.0.5
+（含 400+ 行 lockfile 抖动）——**已回滚、改为手工最小编辑**，避免把一次无关的传递依赖升级夹带进本批。
+
+### 2.5 node 下界是本次迭代抓到的**第二个真缺陷**（D4 的实质）
+
+D4 在交接物里记为「P2 · 覆盖缺口」（声明 `>=20` 但只测 22）。**加 node 20 腿后它从缺口变成声明错误**：
+
+```
+# CI node 20 腿（v20.20.2），4 个真实 PTC 引擎测试全红：
+TypeError: Promise.withResolvers is not a function
+    at PtcWorkflowRun.childResult (.../@deepseek-ai/dsh-workflow-ptc/lib/index.js:358:27)
+```
+
+- `Promise.withResolvers` = V8 12.4 / **Node 22+** 的 API。实测：node 20.20.2 → `undefined`；
+  node 24.15.0 → `function`。
+- 出错点在**官方依赖**里，不是本仓代码：`dsh-workflow-ptc` 1 处、`dsh-agent` 1 处、`dsh-subagent` 5 处。
+  即**真实 dsh 在 node 20 上也会崩**——本插件声称支持 node 20 从一开始就站不住。
+- 本机用 CI 同版本 node 20.20.2 完整复现：**103 pass / 4 fail**（node 22/24 全过）。
+- 处置：`engines.node` → **`>=22`**，CI 矩阵 → `[22, 24]`。**没有给测试加 node<22 跳过**
+  （跳过会让声明继续骗人，且属提示词纪律 ①/② 禁止的「跳测试变绿」）。
+
+**为什么 M5 没发现**：M5 的 CI 只有 node 22 一条腿，而 node 22 恰好有 `withResolvers`——
+缺陷与验证环境同版本，天然不可见。这正是「声明下界必须有对应 CI 腿」的实证价值。
+
+## 3. tag 与 GitHub Release
+
+- tag：`v0.2.1`（annotated），指向 CI 绿的那个提交（实测见 §5 tag 后追加事实）。
+- Release 附件：`npm pack` 产物 `.tgz` + `SHA256SUMS`。**这是本仓第一个 tag/Release**（M5 无 tag、无 Release）。
+  附件的意义：`dsh-pipeline` 这个 npm 名归他人所有，本包按 DEC3=A 改走 scope 包，scope 包**首次发布**
+  需用户 `npm publish --access public`（本批不执行，属人工门）；在 npm 上线前，用户可凭 Release 附件拿到
+  与 tag 一一对应的可安装件。
+- **`lib/` 是 gitignored 的构建产物**（`git ls-files | grep '^lib/'` = 0），但 `npm pack` 的 `files` 含 `lib`
+  ——所以 `.tgz` 必须在**构建后**的工作树里打（`pnpm build` 已跑），不能从裸 clone 打（裸 clone 无 `lib/`，
+  包会缺预编译产物）。这是「安装即用」前提的实证口径。
+
+## 4. 需要人做的事（本批不做，移交）
+
+1. **npm 发布**（DEC3=A 的闭环）：用户登录后 `npm publish --access public`。
+   注意本仓 `.npmrc` 的 registry 是 npmmirror 镜像——**发布必须走真 registry**（`--registry=https://registry.npmjs.org`），
+   镜像不接收发布。
+2. **真实 dsh 安装目检**（唯一权威验收）：把 `@yuluo554/dsh-pipeline` 装进跑 dsh 0.2.1-rc.2 的环境，
+   确认插件 enabled 且 web 面板可见流水线入口。**会改用户 profile，必须用户本人执行或明确授权。**
+3. **contacts**（若改走 DEC3=C）：`dsh-pipeline` 现任 maintainer 邮箱见 registry 公开字段（本文件不复述，避免触发脱敏门）。
+
+## 5. tag 后追加事实（打 tag 后才写）
+
+> 本节在 tag 创建后回填；内容仅限 tag 时点之后发生的事。
+
+（待回填：CI run id / 两腿结论 / annotation 数 / `git rev-list -n1 v0.2.1` / Release 附件 sha256 / 发布后 clone 复核）
