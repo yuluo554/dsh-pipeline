@@ -1,4 +1,4 @@
-// dsh-pipeline 0.2.1 — compiled pipeline "depends-explicit".
+// dsh-pipeline 0.2.2 — compiled pipeline "depends-explicit".
 // 3 nodes, 3 agent calls max; policies: facts=abort, quotes=abort, brief=abort.
 const out = {};
 phase("Facts");

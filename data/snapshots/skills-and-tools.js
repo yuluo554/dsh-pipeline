@@ -1,4 +1,4 @@
-// dsh-pipeline 0.2.1 — compiled pipeline "skills-and-tools".
+// dsh-pipeline 0.2.2 — compiled pipeline "skills-and-tools".
 // 2 nodes, 2 agent calls max; policies: draft=abort, review=abort.
 const out = {};
 phase("Draft");
