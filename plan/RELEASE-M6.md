@@ -1,4 +1,4 @@
-# RELEASE-M6 —— 二次迭代发布留档（v0.2.0 → v0.2.1，2026-10-21）
+# RELEASE-M6 —— 二次迭代发布留档（v0.2.0 → v0.2.2，2026-10-21/-22）
 
 > 纪律：只写实测过的；命令与结论逐条留痕；敏感字面值一律占位符（本文件自身在审查脚本扫描范围内，引述即 FAIL）。
 > 形态沿用 `RELEASE-M5.md`：**第一节 = tag 时点事实**（打 tag 前写定），**第二节 = tag 后追加事实**（打完 tag 才可写）。
@@ -261,6 +261,10 @@ event = push，conclusion = **success**，两腿 **`ci (22)` success / `ci (24)`
 
 ## 6. tag 后追加事实（打完 tag 才写，2026-10-21）
 
+> **⚠ 本节记录的是 `v0.2.1` 时代的事实（已被 §7 取代）。**
+> 那个 tag 后来被删除：它的树里 `package.json` 仍是 `@yuluo554/dsh-pipeline`，与本账号能发布的
+> npm scope 不一致。当前有效版本是 **`v0.2.2`**，权威事实见 **§7**。本节保留原文不改，作为过程留痕。
+
 ### 6.1 tag 落点
 
 - `git rev-list -n1 v0.2.1` == `7ee20435ede5eee32096ae97186c840a13d3d180`，即 §5.1 里 CI 绿之后的**文档提交**；
@@ -308,6 +312,84 @@ sha256sum yuluo554-dsh-pipeline-0.2.1.tgz                  # → 4a01247d…（�
 
 ### 6.4 未闭事项（移交用户）
 
-1. `npm publish --access public`（scope 包首发布；本仓 `.npmrc` 是 npmmirror 镜像，**发布须显式 `--registry=https://registry.npmjs.org`**）。
-2. 真实 dsh 安装目检（唯一权威验收，会改 profile）。
-3. `v0.2.0` 不存在（本仓 v0.2.1 是首个 tag），无旧 tag 需避让。
+1. ~~`npm publish --access public`~~ → **已完成，见 §7**。
+2. 真实 dsh 安装目检（唯一权威验收，会改 profile）—— 用户 2026-10-22 决定**跳过**，替代证据见 §6.3 与 §7.4。
+3. `v0.2.0` 不存在，无旧 tag 需避让。
+
+---
+
+## 7. npm 发布实录与 0.2.2 收口（2026-10-22）
+
+### 7.1 三道阻塞（都已解除，逐条留证）
+
+| # | 阻塞 | 证据 | 解法 |
+|---|---|---|---|
+| A | **凭据失效**：`~/.npmrc` 的 token 是 40 字符 `npm_` 前缀的 **classic token**（npm 已废弃） | `npm whoami` **401**、`npm profile get` → `token seems to be invalid`、`curl /-/whoami` **401** | 用户提供 **granular access token**（Read and write + `@jadeluo` scope 的 publish） |
+| B | **scope 所有权错位**：本账号 npm 用户名是 **`jadeluo`**，而 `yuluo554` 只是 GitHub 用户名 → `@yuluo554/*` 本账号**从来无权发布** | 本账号已发布的 `dsh-prompt-polisher` 的 maintainer = `jadeluo`；`npm publish` 对 `@yuluo554/...` 恒 404 | 包名改 **`@jadeluo/dsh-pipeline`**；GitHub 仓库路径 `github.com/yuluo554/dsh-pipeline` 不变 |
+| C | **2FA（EOTP）**：换 token 后首次 publish 报 `EOTP` | `npm error code EOTP ... This operation requires a one-time password` | 用户在新建 token 时取消该 token 的 2FA 要求 |
+
+> A 与 B 是**独立**的：只修 token 仍会因 scope 无权而失败；只改 scope 仍会因 token 失效而失败。
+> 这正是「M5 记的『阻塞在未登录』」连续两轮都没修对的原因——阻塞从来不是登录。
+
+### 7.2 发布结果
+
+```sh
+npm publish --access public --registry=https://registry.npmjs.org
++ @jadeluo/dsh-pipeline@0.2.1        # 首次成功
++ @jadeluo/dsh-pipeline@0.2.2        # 收口版（见 7.3）
+```
+
+registry 回读（`@jadeluo/dsh-pipeline`）：
+
+| 项 | 0.2.1 | **0.2.2（latest）** |
+|---|---|---|
+| `dist-tags` | — | **`latest`** |
+| `dist.fileCount` | 74 | **74** |
+| `dist.unpackedSize` | 257,289 | **257,289** |
+| `dist.shasum`（sha1） | `c046cfa9…` | **`cd49371a3fdf95c8a697cefbfd663a939ddd0b32`** |
+| `dist.integrity` | `sha512-chj05x…` | **`sha512-ednpr3LIkT+bc+UwifYaHur6s0BoDr0nTI69V2LlE2epoMQva1GPzpzXqPsmdVXlF7oz+TkWe/N7j8uzTh+3Wg==`** |
+| `engines` | `{node:>=22, dsh:>=0.2.0-rc.1 <0.3.0-0}` | 同左 |
+
+> **占位包**：新建 scope 包时 npm 会先发布公开占位版 **`0.0.0-stage`**（"staged publishing"），
+> 真实版本随后才可解析。实测踩到：`npm install @jadeluo/dsh-pipeline`（不带版本）一度装到占位包
+> （无 `lib/`）。→ 复验一律用 `npm install <pkg>@<version> --legacy-peer-deps`。
+
+### 7.3 为什么升 0.2.2（0.2.1 的内容并没有错）
+
+0.2.1 是**用正确的包名**（`@jadeluo/dsh-pipeline`）发布的，其 tarball 内容完全正确。问题在 **git 侧**：
+`v0.2.1` tag 指向的树里 `package.json` 仍是 `@yuluo554/dsh-pipeline`（scope 改动是 tag 之后才提交的）。
+即「tag 树 ≠ npm 发布物」。
+
+处置：**升 0.2.2 重发**，使 tag 树与发布物一致；删除旧 `v0.2.1` tag 与 Release（其附件包名不可安装）；
+npm 上的 0.2.1 **保留**为有效历史版本（内容无误，无需 unpublish）。
+
+**最终状态**：
+
+| 项 | 值 |
+|---|---|
+| git tag | **`v0.2.2`**（annotated，仓库唯一 tag）→ `d141bbb996d8f956884fe6e01ea9a77c3c41f51a` |
+| GitHub Release | `v0.2.2`（Latest，非 draft/prerelease） |
+| 附件 `jadeluo-dsh-pipeline-0.2.2.tgz` | 73,917 B，sha256 `d459b6d0ba69118b014d2784427f62c97bb03318c5c0e959df2fa792b4262892` |
+| 附件 `SHA256SUMS` | 97 B，sha256 `882cbeacf9ad9f706089ca79c4006ae33003401d4aaecce4996de908597acead` |
+| **附件 ↔ npm** | 附件 sha1 = **`cd49371a…`** = registry 记录的 `dist.shasum` → **逐字节同一份** |
+| 旧 `v0.2.1` | tag 与 Release **已删**（npm 上保留） |
+
+### 7.4 从 npm registry 真装复验（发布物自证）
+
+```sh
+npm install @jadeluo/dsh-pipeline@0.2.2 --registry=https://registry.npmjs.org --legacy-peer-deps
+```
+
+| 检查 | 结果 |
+|---|---|
+| 装到的版本 | **0.2.2**（非占位 `0.0.0-stage`） |
+| 包内 manifest | `name=@jadeluo/dsh-pipeline`、`version=0.2.2`、`engines={node:>=22, dsh:>=0.2.0-rc.1 <0.3.0-0}` |
+| `lib/` | **37 文件**（预编译 host + client bundle 齐全） |
+| client bundle 注册 id | `id: "@jadeluo/dsh-pipeline"` |
+| patch 说明符 | `name: '@jadeluo/dsh-pipeline'` |
+| 快照头版本 | `// dsh-pipeline 0.2.2 — compiled pipeline "single-node".`（与包版本一致） |
+| 顶层目录 | `LICENSE README.md cordis.patch.yml data lib locale package.json`（无 `plan/`、`test/`、`src/`） |
+| 宿主判定（装到的 manifest） | `0.2.0-rc.1 / 0.2.1-rc.2 / 0.2.1 / 0.2.9` → **ACCEPTED**；`0.3.0-beta.1` → **REFUSED（unmet 1）** |
+
+> 仍未做：真实 dsh 安装目检（会改 profile，用户决定跳过）。上面是可达的最强替代：
+> 判的是**从 registry 装到的本体**，不是源码树副本。
