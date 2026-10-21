@@ -7,7 +7,7 @@
 
 - 里程碑：M5（发布主体，2026-09-29）→ **M6（二次迭代，完成并发布 v0.2.1，2026-10-21）**
 - 仓库：`D:\ProgramData\zcode\09-29-dsh-pipeline`；远端 `git@github.com:yuluo554/dsh-pipeline.git`（SSH）；分支 `main`
-- 版本：`package.json` = **0.2.1**；npm 包名 = **`@yuluo554/dsh-pipeline`**（scope 包）
+- 版本：`package.json` = **0.2.1**；npm 包名 = **`@jadeluo/dsh-pipeline`**（scope 包）
 - tag：**`v0.2.1`**（annotated）→ `7ee2043`（CI 绿的代码+文档提交）；Release 同 tag
 - 工作树：只剩 `?? update/`（M6 诊断交接目录，**刻意不入仓**：含本机绝对路径）
 
@@ -39,14 +39,14 @@
 
 ## 未闭项（下一步就做这些）
 
-1. **npm 发布（硬阻塞，需用户）**：`@yuluo554/dsh-pipeline` 尚未上 registry。
+1. **npm 发布（硬阻塞，需用户）**：`@jadeluo/dsh-pipeline` 尚未上 registry。
    - 现状实测：`npm whoami` / `npm profile get` → **401**；`npm publish --access public` → **404**。
    - 根因：`~/.npmrc` 里 `//registry.npmjs.org/:_authToken` 是 **40 字符 `npm_` 前缀的 classic token**，
      npm 已废弃该类型。需换成 **granular access token**（须带 *Read and write* + 该 scope 的 publish 权限）。
    - 换好后执行（**必须显式指真 registry**，本仓 `.npmrc` 是 npmmirror 镜像，镜像不接收发布）：
      ```sh
      npm publish --access public --registry=https://registry.npmjs.org
-     npm view @yuluo554/dsh-pipeline version --registry=https://registry.npmjs.org
+     npm view @jadeluo/dsh-pipeline version --registry=https://registry.npmjs.org
      ```
    - 注意：`scope` 首次发布必须 `--access public`，否则会发成私有（需付费计划）。
 2. **awesome-dsh-plugin PR / #7704 回帖 / dsh-market 提交**：等 npm 上线后做（文案草稿见 `RELEASE-M5.md §4`）。

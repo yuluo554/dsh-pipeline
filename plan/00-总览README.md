@@ -4,7 +4,7 @@
 > 方法论：ai-tool-project-sprint（plan 先行 / 每周可演示 / 验收门回写 / 干净环境发布门）。
 > 状态：**M6 二次迭代已发布 v0.2.1（2026-10-21）**。GitHub 公开（yuluo554/dsh-pipeline），
 > tag `v0.2.1` + Release（附 `.tgz` + `SHA256SUMS`，本地/GitHub digest/真下载三值一致）；CI 两腿（Node 22 / 24）全绿。
-> **npm 发包是唯一未闭项**：`@yuluo554/dsh-pipeline` 尚未上 registry（本机 npm token 已失效，属用户动作，
+> **npm 发包是唯一未闭项**：`@jadeluo/dsh-pipeline` 尚未上 registry（本机 npm token 已失效，属用户动作，
 > 详见 plan/RELEASE-M6.md §4/§7）；awesome/#7704/dsh-market 待 npm 上线后执行。
 > 本文档集即任务编排产物；开发须按 plan/05 里程碑顺序执行，不跳步。
 
@@ -18,7 +18,7 @@
 | M3 | Web 半编辑器 | 全程零手写 JSON 配置并运行一条流水线 | ✅ 已完成（dsh.client 声明 + esbuild client 构建 preset + store RPC 路由 + settings 编辑器 + 会话头运行页；DoD 双门离线全绿 + 实机装载/路由/保存链路留证；浏览器 GUI 级验证因本机 CDP 环境损坏列入 M4 人工冒烟，见 plan/m3-demo-log.md 与 06 M3 决策行） | 2026-09-28 |
 | M4 | 运行视图 + 成本徽章 | 聊天中看到节点链状态卡与每节点耗时/成本 | ✅ 已完成（pipeline-run 会话事件族 + 宿主 recorder 写父会话日志 + conversation 定义折叠 + keyed 运行卡；每节点耗时/token 聚合 + 双模型用量对比；99/99 测试 + B1-B4 ALL GREEN + 实机装载/bundle/真会话集成留证；GUI 人工门延续 M3 偏差 #2，见 plan/m4-demo-log.md 与 06 M4 决策行） | 2026-09-29 |
 | M5 | 发布 | npm 包 + GitHub 公开 + awesome PR + #7704 回帖 | 🔶 主体完成（README 完整化 + 兼容 floor ≥0.2.0-rc.1；干净环境验证全绿（发现#1 CRLF 已修+回归）；脱敏四步留档全 0；GitHub 公开可访问 + dsh-plugin 等 5 topic + CI 首跑绿 + 发布后 GitHub 全新 clone 复核 101/101；**npm 发包阻塞在 npm 登录（用户动作）**，awesome/#7704/dsh-market 待发包后执行；**M5 的「兼容声明修正」改的是不被读取的 `dsh.compatibility`，真缺陷留到 M6 修，见 plan/RELEASE-M6.md §1**） | 2026-09-29 |
-| M6 | 二次迭代：兼容修复 + 发布路径明确 + 首个 tag | `dsh plugin --profile web add @yuluo554/dsh-pipeline`（npm 上线前用 Release 附件 `.tgz`） | ✅ 已完成（**`engines.dsh` 修复 P0**：dsh 宿主实测旧 manifest 12 条 unmet → 被拒、新 manifest `undefined`；`dsh.compatibility` 标注为文档字段；npm 名改 scope 包 `@yuluo554/dsh-pipeline`；**node 下界 `>=20` 实为错的 → `>=22`**；README 自述计数 101/99 → 107 + 自述守门；测试 101→107；B1-B4 ALL GREEN；脱敏 111 文件 0 命中；CI 两腿 22/24 全绿；**tag `v0.2.1` + Release**（`.tgz` 73,912 B + `SHA256SUMS`，三值一致）；**npm 发布待用户凭新 token 执行**） | 2026-10-21 |
+| M6 | 二次迭代：兼容修复 + 发布路径明确 + 首个 tag | `dsh plugin --profile web add @jadeluo/dsh-pipeline`（npm 上线前用 Release 附件 `.tgz`） | ✅ 已完成（**`engines.dsh` 修复 P0**：dsh 宿主实测旧 manifest 12 条 unmet → 被拒、新 manifest `undefined`；`dsh.compatibility` 标注为文档字段；npm 名改 scope 包 `@jadeluo/dsh-pipeline`；**node 下界 `>=20` 实为错的 → `>=22`**；README 自述计数 101/99 → 107 + 自述守门；测试 101→107；B1-B4 ALL GREEN；脱敏 111 文件 0 命中；CI 两腿 22/24 全绿；**tag `v0.2.1` + Release**（`.tgz` 73,912 B + `SHA256SUMS`，三值一致）；**npm 发布待用户凭新 token 执行**） | 2026-10-21 |
 
 ## 文档索引
 
@@ -52,7 +52,7 @@
 - [x] 干净环境验证：新目录 clone + 全新 Node 环境（不依赖开发机全局包）按 README 一次跑通（发现 #1 Windows clone CRLF 已修 + 回归测试；M6 复验：仓库外 clone + 隔离 store，install/lint/test/bench/audit/pack 六连全绿）
 - [x] 脱敏四步通过并留档（plan/RELEASE-M5.md + plan/RELEASE-M6.md §6），历史全 0 命中（M6 实测 111 跟踪文件 + 15 提交），GitHub 公开可访问（https://github.com/yuluo554/dsh-pipeline）
 - [x] **有可被引用的版本**（M6 新增门）：tag `v0.2.1` + Release，附 `.tgz` + `SHA256SUMS`，本地/GitHub digest/真下载复算三值一致；包内 manifest 经 dsh 宿主判定函数对 0.2.x 全线 ACCEPTED、0.3.0-beta.1 REFUSED
-- [ ] **npm registry 可安装**（未闭）：`@yuluo554/dsh-pipeline` 尚未上 registry。本机 `~/.npmrc` 的 token 是已废弃的 classic 型（40 字符 `npm_` 前缀），
+- [ ] **npm registry 可安装**（未闭）：`@jadeluo/dsh-pipeline` 尚未上 registry。本机 `~/.npmrc` 的 token 是已废弃的 classic 型（40 字符 `npm_` 前缀），
       `npm whoami` / `npm profile get` 均 401，`npm publish --access public` 返回 404。**需用户提供新的 granular token 后执行**；
       在此之前用户可用 Release 附件的 `.tgz` 安装（已验证 `pnpm add <tgz>` → import 成功）
 

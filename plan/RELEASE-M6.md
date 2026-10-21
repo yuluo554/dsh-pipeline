@@ -11,7 +11,7 @@
 | 1 | **D1（P0）** | 兼容声明改为 `engines.dsh` 单点决定：`">=0.2.0-rc.1 <0.3.0-0"` | `package.json` |
 | 1 | D2（P1） | `dsh.compatibility` 保留为文档元数据并标注不参与校验，值同步为上界范围 | `package.json`、`README.md` |
 | 1 | — | 新增兼容守门（复制宿主判定逻辑，10 个版本正反控） | `test/compat.test.js`（新） |
-| 2 | **D3（P1）** | npm 包名改 scope 包 `@yuluo554/dsh-pipeline`；Loader 模块说明符同步；client bundle 注册 id 改为从 manifest 读取 | `package.json`、`cordis.patch.yml`、`scripts/build-client.mjs`、`test/client-bundle.test.js`、`README.md` |
+| 2 | **D3（P1）** | npm 包名改 scope 包 `@jadeluo/dsh-pipeline`；Loader 模块说明符同步；client bundle 注册 id 改为从 manifest 读取 | `package.json`、`cordis.patch.yml`、`scripts/build-client.mjs`、`test/client-bundle.test.js`、`README.md` |
 | 3 | D8（P2） | README 测试计数 101/99 两处 → **107**，并新增自述计数守门 | `README.md`、`test/self-report.test.js`（新） |
 | 3 | D5（P2） | M5 留档的 `74 文件 / 72.8 kB` → `74 文件`（不记 kB） | `plan/RELEASE-M5.md` |
 | 3 | **D4（P2 → 实为声明错误）** | CI 先加 node 20 腿 → 该腿揪出真缺陷（官方依赖用 Node 22+ API）→ `engines.node` 由 `>=20` 改 **`>=22`**，CI 矩阵改 `[22, 24]` | `package.json`、`.github/workflows/ci.yml`、`README.md` |
@@ -129,7 +129,7 @@ console.log('issue =', evaluatePluginCompatibility(m, {}, '0.2.1-rc.2'))
 | NC2 | 摘掉 `engines.dsh`（复现 M5 路径）→ 0.2.1-rc.2 必须 12 条 unmet | 12 | `NO engines.dsh, 0.2.1-rc.2 unmet = 12`；`WITH engines.dsh = 0`（探针有效） | 0 |
 | NC3 | 宿主校验函数附近（`:271-320`）grep `compatibility` | 0 | **0 命中**（`dsh.compatibility` 确实不被读） | 0 |
 | NC4 | registry 的 `dsh-pipeline` owner 仍为 tudamu/0.0.1 | 是 | `latest: 0.0.1`、`maintainers: tudamu`（直连 `registry.npmjs.org`；经代理 127.0.0.1:7897 反而连不上） | 0 |
-| NC5 | README `99 例` = 0、`107 例` ≥ 1、裸装命令 `add dsh-pipeline` = 0、`add @yuluo554/dsh-pipeline` = 1 | 全对 | 0 / 2 / 0 / 1 | 0 |
+| NC5 | README `99 例` = 0、`107 例` ≥ 1、裸装命令 `add dsh-pipeline` = 0、`add @jadeluo/dsh-pipeline` = 1 | 全对 | 0 / 2 / 0 / 1 | 0 |
 | NC6 | 恒定回归：测试 107/107、bench ALL GREEN | 是 | `tests 107 / pass 107 / fail 0`、`ALL GREEN` | 0 / 0 |
 | NC7 | 脱敏审计仍绿（改了 README/package.json 必须重跑） | 绿 | `DESSENSITIZE_AUDIT_OK` | 0 |
 | NC8 | 打包边界仍干净 | 74 文件 | `total files: 74`（`package size 73.9 kB`） | 0 |
@@ -183,7 +183,7 @@ TypeError: Promise.withResolvers is not a function
 
 ## 4. 需要人做的事（本批不做，移交）
 
-1. **npm 发布**（DEC3=A 的闭环）—— **已实测确认是硬阻塞，不是"未登录"这么简单**：
+1. **npm 发布**（DEC3=A 的闭环）—— **实测确认是两道阻塞叠加，不是「未登录」这么简单**：
 
    | 探针 | 结果 |
    |---|---|
@@ -191,18 +191,27 @@ TypeError: Promise.withResolvers is not a function
    | `npm profile get --registry=https://registry.npmjs.org` | `Unable to authenticate, your authentication token seems to be invalid` |
    | `curl -H "Authorization: Bearer <token>" https://registry.npmjs.org/-/whoami` | **http=401**，body `{}` |
    | `npm publish --access public --registry=…` | **E404**（PUT `@yuluo554%2fdsh-pipeline` — 未认证下的权限错误） |
-   | `npm publish --dry-run` | **通过**：74 文件、public access、`+ @yuluo554/dsh-pipeline@0.2.1` |
-   | `GET https://registry.npmjs.org/@yuluo554%2Fdsh-pipeline` | **404** → scope 下无同名包，**名字可用** |
+   | `npm publish --dry-run` | **通过**：74 文件、public access |
+   | `GET https://registry.npmjs.org/@yuluo554%2Fdsh-pipeline` | **404** → 该 scope 下无同名包 |
 
-   根因：`~/.npmrc` 里的 `//registry.npmjs.org/:_authToken` 是 **40 字符、`npm_` 前缀的 classic token**，
-   npm 已废弃该类型。需换 **granular access token**（权限：Read and write；勾选该 scope 的 publish）。
-   换好后：
+   **阻塞 A（凭据）**：`~/.npmrc` 里的 `//registry.npmjs.org/:_authToken` 是 **40 字符、`npm_` 前缀的 classic token**，
+   npm 已废弃该类型 → 必须换 **granular access token**（权限 Read and write + 目标 scope 的 publish）。
+
+   **阻塞 B（scope 所有权，2026-10-22 追加）**：本账号的 npm 用户名是 **`jadeluo`**（证据：本账号已发布的
+   `dsh-prompt-polisher` 的 maintainer 为 `jadeluo`），**不是** GitHub 上的 `yuluo554`。所以
+   `@yuluo554/...` 这个 scope 本账号无权发布——即便 token 换对了，往该 scope 发仍会被拒。
+   **处置**：npm 包名改为 **`@jadeluo/dsh-pipeline`**（与本账号既有插件同 scope）；GitHub 仓库路径
+   `github.com/yuluo554/dsh-pipeline` **不变**（那是仓库，与 npm scope 无关）。
+   实测 `@jadeluo/dsh-pipeline` 在 registry 上 **404 = 名字可用**。
+
+   换好 token 后：
    ```sh
-   npm publish --access public --registry=https://registry.npmjs.org   # 必须显式指真 registry
-   npm view @yuluo554/dsh-pipeline version --registry=https://registry.npmjs.org
+   cd <repo>                                                            # 必须在含 package.json 的目录
+   pnpm build && npm publish --access public --registry=https://registry.npmjs.org
+   npm view @jadeluo/dsh-pipeline version --registry=https://registry.npmjs.org
    ```
    **本仓 `.npmrc` 是 npmmirror 镜像，镜像不接收发布**；scope 包首次发布必须 `--access public`（否则发成私有）。
-2. **真实 dsh 安装目检**（唯一权威验收）：把 `@yuluo554/dsh-pipeline` 装进跑 dsh 0.2.1-rc.2 的环境，
+2. **真实 dsh 安装目检**（唯一权威验收）：把 `@jadeluo/dsh-pipeline` 装进跑 dsh 0.2.1-rc.2 的环境，
    确认插件 enabled 且 web 面板可见流水线入口。**会改用户 profile** —— 用户已于 2026-10-22 **明确决定跳过**；
    替代证据见 §6.3（宿主判定函数判包内 manifest + `.tgz` 装后 import 冒烟）。
 3. **contacts**（若改走 DEC3=C）：`dsh-pipeline` 现任 maintainer 邮箱见 registry 公开字段（本文件不复述，避免触发脱敏门）。
@@ -286,11 +295,11 @@ sha256sum yuluo554-dsh-pipeline-0.2.1.tgz                  # → 4a01247d…（�
 | 条目数 | **74**（`tar -tzf \| wc -l`），与 `npm pack` 一致 |
 | 关键件 | `package/lib/index.js`、`package/lib/client.js`、`package/cordis.patch.yml`、`package/locale/{en,zh}.json`、`package/data/README.md` 齐全 |
 | 泄漏 | `package/(plan\|test\|src)/` 命中 **0** |
-| 包内 manifest | `name=@yuluo554/dsh-pipeline`、`version=0.2.1`、`engines={node:>=22, dsh:>=0.2.0-rc.1 <0.3.0-0}` |
-| 包内 patch 说明符 | `name: '@yuluo554/dsh-pipeline'`（与包名一致） |
-| 包内 client bundle | `window.__ModuleLoader__.load({ id: "@yuluo554/dsh-pipeline" …`（与包名一致） |
+| 包内 manifest | `name=@jadeluo/dsh-pipeline`、`version=0.2.1`、`engines={node:>=22, dsh:>=0.2.0-rc.1 <0.3.0-0}` |
+| 包内 patch 说明符 | `name: '@jadeluo/dsh-pipeline'`（与包名一致） |
+| 包内 client bundle | `window.__ModuleLoader__.load({ id: "@jadeluo/dsh-pipeline" …`（与包名一致） |
 | 宿主机判定包内 manifest | `0.2.0-rc.1 / 0.2.1-rc.2 / 0.2.1 / 0.2.9` → **ACCEPTED**；`0.3.0-beta.1` → REFUSED（unmet 1） |
-| 安装即用 | `pnpm add <tgz>` 进临时 profile → `import '@yuluo554/dsh-pipeline'` 成功（`name/inject/apply` 正确，`lib/` 预编译产物到位） |
+| 安装即用 | `pnpm add <tgz>` 进临时 profile → `import '@jadeluo/dsh-pipeline'` 成功（`name/inject/apply` 正确，`lib/` 预编译产物到位） |
 
 > **口径说明（不夸大）**：上面「安装即用」是**脱离 dsh 宿主**的 Node 加载冒烟（在临时 profile 里装、import、
 > 看导出契约），**不是** `dsh plugin add` 把插件挂进真实 profile 的端到端验收——那会改用户环境，

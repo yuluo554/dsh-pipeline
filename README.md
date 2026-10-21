@@ -84,14 +84,14 @@ flowchart LR
 ### 安装
 
 ```sh
-dsh plugin --profile web add @yuluo554/dsh-pipeline
+dsh plugin --profile web add @jadeluo/dsh-pipeline
 ```
 
 包内含预构建产物，安装即用，无需本地构建。安装时插件的 bundle patch 会自动启用
 web profile 默认禁用的 `workflow-ptc` 引擎（本插件是它的专用消费方）。
 
 > **包名说明**：npm 上的 `dsh-pipeline`（无 scope）是**别人的另一个包**（`tudamu`，0.0.1，
-> 描述写 "Name reserved"），与本项目无关。本项目的 npm 包名是 **`@yuluo554/dsh-pipeline`**；
+> 描述写 "Name reserved"），与本项目无关。本项目的 npm 包名是 **`@jadeluo/dsh-pipeline`**；
 > 上一行命令若漏掉 scope 就会装到那个不相干的包上，插件不会激活。
 > 也可以直接从 GitHub 装：`dsh plugin --profile web add github:yuluo554/dsh-pipeline`。
 
@@ -155,10 +155,10 @@ dsh --profile web --dump-config   # 应可见 "# == dsh-pipeline" 层 + workflow
 ```
 
 卸载：`dsh plugin --profile web remove ./dsh-pipeline`（层消失、注册随 effect 注销）。
-从 npm 安装的则用 `remove @yuluo554/dsh-pipeline`。
+从 npm 安装的则用 `remove @jadeluo/dsh-pipeline`。
 
 > 两处都按**安装来源**卸：Cordis 层里那一行的 `id` 始终是 `dsh-pipeline`，但 `dsh plugin remove`
-> 认的是 profile `package.json` 里记录的那个依赖名（`./dsh-pipeline` 或 `@yuluo554/dsh-pipeline`）。
+> 认的是 profile `package.json` 里记录的那个依赖名（`./dsh-pipeline` 或 `@jadeluo/dsh-pipeline`）。
 
 ## 内置基准评测
 

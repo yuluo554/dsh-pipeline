@@ -94,11 +94,11 @@
 > `npm whoami` 的 ENEEDAUTH 只是表层——即使登录成功，`npm publish` 也必然失败，因为
 > **`dsh-pipeline`（无 scope）自 2026-08-23 起已被 `tudamu` 占用**（latest `0.0.1`，描述写
 > "Name reserved"），而非 scope 包不能覆盖他人已发布的同名包。**真正的阻塞是所有权，不是登录。**
-> 处置（M6 DEC3=A）：本仓 npm 包名改为 scope 包 **`@yuluo554/dsh-pipeline`**，`package.json`
+> 处置（M6 DEC3=A）：本仓 npm 包名改为 scope 包 **`@jadeluo/dsh-pipeline`**，`package.json`
 > 的 `name`、`cordis.patch.yml` 的 insert `name`、client bundle 注册 id 三处同步；
 > 上文的 `npm login && npm publish` 命令与「非 scope 包默认 public」那一句对**本包已失效**，
 > scope 包首次发布须 `npm publish --access public`。安装命令改为
-> `dsh plugin --profile web add @yuluo554/dsh-pipeline`（漏掉 scope 会装到别人的 0.0.1）。
+> `dsh plugin --profile web add @jadeluo/dsh-pipeline`（漏掉 scope 会装到别人的 0.0.1）。
 
 ## 4. GitHub 发布与推广（首推已完成 2026-09-29）
 

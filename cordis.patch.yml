@@ -18,5 +18,5 @@
   disabled: false
 - insert:
     - id: dsh-pipeline
-      name: '@yuluo554/dsh-pipeline'
+      name: '@jadeluo/dsh-pipeline'
       config: {}
