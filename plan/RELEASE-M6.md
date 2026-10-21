@@ -190,8 +190,49 @@ TypeError: Promise.withResolvers is not a function
    确认插件 enabled 且 web 面板可见流水线入口。**会改用户 profile，必须用户本人执行或明确授权。**
 3. **contacts**（若改走 DEC3=C）：`dsh-pipeline` 现任 maintainer 邮箱见 registry 公开字段（本文件不复述，避免触发脱敏门）。
 
-## 5. tag 后追加事实（打 tag 后才写）
+## 5. tag 时点事实（打 tag 前写定，2026-10-21）
+
+### 5.1 代码树的 CI 证据（三个 run，逐条列 sha，不写「本提交」避免自指）
+
+CI run **`39628634985`**，`head_sha = 1fd5791be21eda5b967b587663797b24ac6996ca`
+（本次迭代最后一次改动代码/配置的提交；其后的提交只改 `plan/`、`update/` 文档，不改门禁对象），
+event = push，conclusion = **success**，两腿 **`ci (22)` success / `ci (24)` success**（各 11 steps）。
+
+- **annotation = 2 条**，均为 runner 侧通知：
+  `"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026."`
+  （本仓无法消除：`ubuntu-latest` 是 runner 侧标签；若要钉死须显式写 `ubuntu-24.04`。）
+- 文档提交自身的 CI run id 记在 §6（打完 tag 才能写，见底部「自指」说明）。
+
+### 5.2 本批三次 CI 实录（如实，含一次真缺陷暴露）
+
+| run id | head | 结论 | 说明 |
+|---|---|---|---|
+| `39625832990` | 首次推送 | node 22 success / **node 20 failure** | 4 个真实 PTC 引擎测试报 `Promise.withResolvers` 缺失 → 揪出 `engines.node >=20` 是错的（见 §2.5） |
+| `39628243240` | 改下界 `>=22` 矩阵 `[22,24]` | 两腿 success | 但仍有 4 条 annotation（含 2 条 actions 自身的 Node 20 弃用） |
+| `39628634985` | actions 升 v7/v6 | **两腿 success** | annotation 降到 2 条（只剩 Ubuntu 26 迁移通知） |
+
+### 5.3 tag 时点门禁（本提交树，本机 Node v24.15.0）
+
+| 门 | 汇总行 | rc |
+|---|---|---|
+| `node --test` | `tests 107 / pass 107 / fail 0` | 0 |
+| `pnpm lint` | 干净 | 0 |
+| `node scripts/bench.js` | B1 7/7、B2 22/22、B3 4/4、B4 6/6、`ALL GREEN` | 0 |
+| `node scripts/release-audit.mjs` | 111 文件 / 0 命中 → `DESSENSITIZE_AUDIT_OK` | 0 |
+| `npm pack`（构建后） | **74 文件**，产物 `yuluo554-dsh-pipeline-0.2.1.tgz` | 0 |
+
+### 5.4 tag 与 Release 附件（时点值）
+
+- tag：`v0.2.1`（annotated），目标 = §5.1 的 CI 绿提交。
+- 附件：`yuluo554-dsh-pipeline-0.2.1.tgz` + `SHA256SUMS`。
+- `.tgz` sha256（**打 tag 前算定**，与附件逐字节同一份；大小 73,912 B）：
+  `4a01247d1a6d7c7c58987f37ecbdddd9f400d0611b57e46640102f703993bde3`
+- `SHA256SUMS` 自身 sha256：`71d433395c625ae24c1330294c5fdc50d0c2735f9e151d67a38624ece267d8bc`
+  （格式：`<hash><两空格><文件名>`，单 LF 结尾，不带 `*`。）
+
+> 注意：`.tgz` 是在**构建后**的工作树里打的（`lib/` 是 gitignored 构建产物，裸 clone 无 `lib/`，打出来会缺件）。
+> 复现：`pnpm install --frozen-lockfile && pnpm build && npm pack`。
+
+## 6. tag 后追加事实（打 tag 后才写）
 
 > 本节在 tag 创建后回填；内容仅限 tag 时点之后发生的事。
-
-（待回填：CI run id / 两腿结论 / annotation 数 / `git rev-list -n1 v0.2.1` / Release 附件 sha256 / 发布后 clone 复核）
